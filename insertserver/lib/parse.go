@@ -1,167 +1,210 @@
+/*
+RBXM Parser Library
+*/
 package lib
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
-	"math"
-	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
-	"github.com/robloxapi/rbxfile"
-	"github.com/robloxapi/rbxfile/bin"
-	"github.com/robloxapi/rbxfile/json"
+	"github.com/klauspost/compress/zstd"
+	"github.com/pierrec/lz4/v4"
 )
 
-//ErrFileTooBig An error in which the download url file exceeds 100 megabytes, or 1x10^8 bytes.
-var ErrFileTooBig = errors.New("File size exceeds 100 megabytes or FileSize error")
+const RBXFILE_HEADER string = "<roblox"
+const BIN_FLAG string = "!"
+const RBXM_SIG string = "\x89\xff\x0d\x0a\x1a\x0a"
+const ZLIB_HEADER string = "\x28\xb5\x2f\xfd"
+const xmlprefixthing string = "<?xml version='1.0' encoding='utf-8'?>"
+const xmlprefixthing2 string = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+const maxFileSizeMiB int = 20 //max file size (avoids memory overflow)
 
-//DownloadFile Borrowed from golangcode.com
-func DownloadFile(id string) (io.Reader, error) {
-
-	url := "https://www.roblox.com/asset?id=" + id
-
-	filepath := id + ".rbxm"
-
-	// Create the file
-	out, err := os.Create(filepath)
-	if err != nil {
-		return nil, err
-	}
-	defer out.Close()
-
-	// Get the data
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Create a new buffer
-	//buffer := bytes.NewBuffer(make([]byte, 2, 52))
-
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Open file as io.Reader
-	file, err := os.Open(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	return file, nil
+var validChunkIdents []string = []string{
+	"END\x00",
+	"INST",
+	"META",
+	"PRNT",
+	"PROP",
+	"SIGN",
+	"SSTR",
 }
 
-//PurifyFloat64Value Purifies float value as float64
-func PurifyFloat64Value(Val float64) float64 {
-	ReturnVal := Val
-	if math.IsInf(Val, 0) {
-		ReturnVal = 1000000000000
-	} else if math.IsInf(Val, -1) {
-		ReturnVal = -1000000000000
-	} else if math.IsNaN(Val) {
-		fmt.Println("nan")
-		ReturnVal = 0
-	}
-	return ReturnVal
+/*
+CHUNK_MODULES={
+    "INST":chunks.INST,
+    "META":chunks.META,
+    "PRNT":chunks.PRNT,
+    "PROP":chunks.PROP,
+    "SSTR":chunks.SSTR
+    #SIGN and END\0 are not processed because they dont contain usable data
+};
+*/
+/*
+Processes RBXM Chunk Data
+
+    Parameters:
+        chunkStore - Dictionary to store Chunk values
+        ident - Chunk Identifier
+*/
+type ChunkHandler func(data *Stream, rbxm *RBXM) error
+
+var CHUNK_MODULES = map[string]ChunkHandler{
+	"INST": INST,
+	"META": META,
+	"PRNT": PRNT,
+	"PROP": PROP,
+	"SSTR": SSTR,
 }
 
-//PurifyFloat32Value Purifies float value as float32
-func PurifyFloat32Value(Val float32) float32 {
-	ReturnVal := Val
-	FloatVal := float64(Val)
-	if math.IsInf(FloatVal, 0) {
-		ReturnVal = 1000000000000
-	} else if math.IsInf(FloatVal, -1) {
-		ReturnVal = -1000000000000
-	} else if math.IsNaN(FloatVal) {
-		ReturnVal = 0
-	}
-	return ReturnVal
-}
-
-//Purify Cleans a struct for +Inf or nan, sorry for the spaghetti code
-func Purify(Obj *rbxfile.Instance) {
-	for _, Inst := range Obj.Children {
-		for Prop, PropVal := range Inst.Properties {
-			NewVal := PropVal.String()
-			ValType := PropVal.Type()
-			if Val, err := strconv.ParseFloat(NewVal, 64); err == nil {
-				ReturnVal := PurifyFloat64Value(Val)
-				Inst.Properties[Prop] = rbxfile.ValueFloat(ReturnVal)
-			} else if ValType == rbxfile.TypeVector3 {
-				SplitString := strings.Split(NewVal, ", ")
-				XStr := SplitString[0]
-				YStr := SplitString[1]
-				ZStr := SplitString[2]
-				XVal, errX := strconv.ParseFloat(XStr, 32)
-				YVal, errY := strconv.ParseFloat(YStr, 32)
-				ZVal, errZ := strconv.ParseFloat(ZStr, 32)
-				if errX == nil && errY == nil && errZ == nil {
-					XFloat := PurifyFloat32Value(float32(XVal))
-					YFloat := PurifyFloat32Value(float32(YVal))
-					ZFloat := PurifyFloat32Value(float32(ZVal))
-					Inst.Properties[Prop] = rbxfile.ValueVector3{
-						X: XFloat,
-						Y: YFloat,
-						Z: ZFloat,
-					}
-				}
-			} else if ValType == rbxfile.TypeVector2 {
-				SplitString := strings.Split(NewVal, ", ")
-				XStr := SplitString[0]
-				YStr := SplitString[1]
-				XVal, errX := strconv.ParseFloat(XStr, 32)
-				YVal, errY := strconv.ParseFloat(YStr, 32)
-				if errX == nil && errY == nil {
-					XFloat := PurifyFloat32Value(float32(XVal))
-					YFloat := PurifyFloat32Value(float32(YVal))
-					Inst.Properties[Prop] = rbxfile.ValueVector2{
-						X: XFloat,
-						Y: YFloat,
-					}
-				}
+func ProcessChunk(chunkStore map[string][]Chunk, ident string, rbxm *RBXM) error {
+	chunks := chunkStore[ident]
+	for _, chunk := range chunks {
+		if handler, ok := CHUNK_MODULES[chunk.Header]; ok {
+			err := handler(newStream(chunk.Data, false), rbxm)
+			if err != nil {
+				return err
 			}
 		}
-		Purify(Inst)
 	}
+	return nil
 }
 
-//Parse Downloads RBXM file with an asset id, parses through, and returns JSON table.
-func Parse(id string) []byte {
-	serializer := bin.NewSerializer(nil, nil)
+/* Decompresses any RBXM Chunk */
+func InitChunk(content *Stream, index int) (Chunk, error) {
+	chunk := Chunk{
+		InternalId:       index,
+		Header:           content.ReadAsString(4, true),
+		DecompressedSize: 0,
+		CompressedSize:   0,
+	}
+	content.ReadNumber(binary.LittleEndian, &(chunk.CompressedSize))
+	content.ReadNumber(binary.LittleEndian, &(chunk.DecompressedSize))
+	if content.ReadAsString(4, true) != "\x00\x00\x00\x00" {
+		return chunk, errors.New("Invalid Chunk Header on chunk index " + strconv.FormatInt(int64(index), 10))
+	}
+	if chunk.CompressedSize == 0 {
+		chunk.Data = content.Read(int(chunk.DecompressedSize), true)
+	} else {
+		chunkData := content.Read(int(chunk.CompressedSize), true)
+		if len(chunkData) >= 4 &&
+			chunkData[0] == 0x28 && chunkData[1] == 0xB5 &&
+			chunkData[2] == 0x2F && chunkData[3] == 0xFD {
+			//zstd
+			dec, _ := zstd.NewReader(nil)
+			data, err := dec.DecodeAll(chunkData, nil)
+			if err != nil {
+				return chunk, errors.New("Decompression failed on chunk index " + strconv.FormatInt(int64(index), 10))
+			}
+			chunk.Data = data
+		} else {
+			dest := make([]byte, int(chunk.DecompressedSize))
+			n, err := lz4.UncompressBlock(chunkData, dest)
+			if err != nil {
+				return chunk, errors.New("Decompression failed on chunk index " + strconv.FormatInt(int64(index), 10))
+			}
+			chunk.Data = dest[:n]
+		}
+	}
+	return chunk, nil
+}
 
-	// Downloads file
-	file, err := DownloadFile(id)
+/*
+Reads an RBXM/RBXMX stream and returns its structured representation.
+
+	Parameters:
+	    data  - Raw RBXM/RBXMX XML content.
+
+	Returns:
+	    RBXM  - Parsed model tree.
+	    error - Non-nil if the stream is malformed or unsupported.
+*/
+func Parse(data string) (*RBXM, error) {
+	if len(data) > (maxFileSizeMiB * 1024 * 1024) {
+		return nil, fmt.Errorf("File size is too large (exceeds %d MiB), please load a smaller file", maxFileSizeMiB)
+	}
+	rawData := newStream([]byte(data), false)
+	if rawData.ReadAsString(len(xmlprefixthing), false) == xmlprefixthing || rawData.ReadAsString(len(xmlprefixthing2), false) == xmlprefixthing2 {
+		fmt.Println("Detected RBXMX file, switching to RBXMX parser...")
+		return ParseXML(data)
+	}
+	if rawData.ReadAsString(len(RBXFILE_HEADER), true) != RBXFILE_HEADER {
+		return nil, errors.New("Failed to parse file, it is not a valid RBXM/RBXMX file.")
+	}
+	if rawData.ReadAsString(1, true) != BIN_FLAG {
+		fmt.Println("Detected RBXMX file, switching to RBXMX parser...")
+		return ParseXML(data)
+	}
+	if rawData.ReadAsString(6, true) != RBXM_SIG {
+		return nil, errors.New("Failed to parse file, it is not a valid RBXM file.")
+	}
+	if rawData.ReadAsString(2, true) != "\x00\x00" {
+		return nil, errors.New("File version is not supported. Only version 0 is supported. IF YOU SEE THIS MESSAGE, CONTACT THE DEVELOPER, IT MEANS RBXM HAS CHANGED VERSIONS.")
+	}
+	var counts [2]uint32
+	rawData.ReadNumber(binary.LittleEndian, &counts)
+	rbxm := RBXM{
+		Metadata:      map[string]any{},
+		SharedStrings: []string{},
+		ClassCount:    0,
+		InstanceCount: 0,
+		ClassRef:      make([]ClassRefEntry, counts[0]),
+		InstRef:       make([]*Instance, counts[1]),
+		Tree:          []*Instance{},
+	}
+	rbxm.ClassCount = counts[0]
+	rbxm.InstanceCount = counts[1]
+	chunkStore := map[string][]Chunk{}
+	for i := 0; i < len(validChunkIdents); i++ {
+		chunkStore[validChunkIdents[i]] = []Chunk{}
+	}
+	if rawData.ReadAsString(8, true) != "\x00\x00\x00\x00\x00\x00\x00\x00" {
+		return &rbxm, errors.New("Failed to parse file, it is not a valid RBXM file.")
+	}
+	// its chunk time
+	chunkIndex := 0
+	hasReachedEndChunk := false
+	for !hasReachedEndChunk {
+		chunk, err := InitChunk(rawData, chunkIndex)
+		if err != nil {
+			return &rbxm, err
+		}
+		ident := chunk.Header
+		if ident == "END\x00" {
+			hasReachedEndChunk = true
+			break
+		}
+		if _, ok := chunkStore[ident]; ok {
+			chunkStore[ident] = append(chunkStore[ident], chunk)
+		} else {
+			return &rbxm, errors.New("Unknown Chunk Identifier on chunk index: " + strconv.FormatInt(int64(chunkIndex), 10))
+		}
+		chunkIndex++
+	}
+	ProcessChunk(chunkStore, "META", &rbxm)
+	ProcessChunk(chunkStore, "SSTR", &rbxm)
+	ProcessChunk(chunkStore, "INST", &rbxm)
+	ProcessChunk(chunkStore, "PROP", &rbxm)
+	ProcessChunk(chunkStore, "PRNT", &rbxm)
+	return &rbxm, nil
+}
+
+/*
+Reads an RBXM/RBXMX file and returns its structured representation.
+
+	Parameters:
+	    path  - Path to RBXM/RBXMX file
+
+	Returns:
+	    RBXM  - Parsed model tree.
+	    error - Non-nil if the stream is malformed or unsupported.
+*/
+func ParseFile(path string) (*RBXM, error) {
+	content, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, fmt.Errorf("%s", "Failed to read file: "+err.Error())
 	}
-
-	// Deserilization
-	root, err := serializer.Deserialize(file)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	// Purification (Makes sure the right values are there)
-	for _, Inst := range root.Instances {
-		Purify(Inst)
-	}
-
-	// JSON Encode
-	marsh, err := json.Encode(root)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	//output := string(marsh)
-	return marsh
+	return Parse(string(content))
 }

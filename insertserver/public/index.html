@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Webservice Landing Page</title>
+        <meta charset="UTF-8">
+        <meta name="description" content="An alternative to the `InsertService` and `AssetService:LoadAssetAsync()`">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/static/css/styles.css">
+        <link rel="icon" type="image/png" href="/static/images/favicon.png">
+    </head>
+    <body>
+        <script id="versionFetch">
+            window.addEventListener("load",function(){
+                var versionDisplay=document.getElementById("version");
+                try {
+                    fetch("/server.py",{
+                        method:"GET",
+                        headers:{
+                            "Accept":"application/json",
+                        }
+                    }).then(res=>{
+                        if (res.ok){
+                            return res.json();
+                        }else{
+                            console.log(`Failed to fetch due to a request error: ${res.statusText} (${res.status})`);
+                        }
+                    },fail=>{
+                        console.log("Failed to fetch due to an error: "+toString(fail))
+                    }).then(jsonData=>{
+                        console.log(jsonData);
+                        if (jsonData!=null && jsonData.HostInfo!=null){
+                            let app_inf=jsonData.HostInfo;
+                            if (app_inf!=null && app_inf.AppVersion!=null){
+                                versionDisplay.innerHTML="v"+app_inf.AppVersion;
+                            };
+                        }else{
+                            console.log("The returned JSON is not valid for this scope.")
+                        };
+                    },()=>{
+                        console.log("JSON Conversion Failed.");
+                    });
+                }catch(err){
+                    console.log(err);
+                };
+            });
+        </script>
+        <div id="content">
+            <div class="div80 displayblock center rounded center_text" id="header">
+                <div id="header_img"></div>
+                <h1 class="title">The Insert Webservice</h1>
+                <h3 class="title">An alternative to the <code class="custom_code">InsertService</code> & <code class="custom_code">AssetService:LoadAssetAsync()</code></h3>
+                <p class="med_text">(Landing Page)</p>
+                <sub id="version" class="custom_dark">v</sub>
+            </div>
+            <div class="div80 displayblock center rounded">
+                <h3 class="subtitle">Useful links:</h3>
+                <ul>
+                    <li><a href="/docs">Webservice Documentation</a></li>
+                    <li><a href="/docs/ref">RESTful API Reference</a></li>
+                    <li><a href="/README">Repository README</a></li>
+                </ul>
+            </div>
+        </div>
+    </body>
+</html>

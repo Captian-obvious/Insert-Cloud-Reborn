@@ -1,59 +1,105 @@
-## What does it do?
-This new service allows you to insert any uncopylocked roblox model without any restrictions. It also sandboxes the models inserted to make sure they are safe and will not harm your game. It utilizes GoLang, Lua, and Python to achieve this.
+# Insert Cloud V3
 
-## How does it work?
-As you may know, creators can only insert models owned by them, which is one of the biggest hurdles when it comes to insert service. This bypasses this issue by setting up a web server that fetches the rbxm file of a model. The model has to be uncopylocked to do this, otherwise it will fail. The web server will then parse that rbxm file into JSON by using Anaminus' rbxfile, and send the JSON as a response to an http request sent by the lua module. The lua module will convert the JSON table to a standard lua table, and using that information will construct and compile it into a model. It will also sandbox the scripts in the model, ensuring no viruses or malicious scripts are in the virus.
-![alt text](https://raw.githubusercontent.com/Robuyasu/Insert-Cloud/master/InsertCloudDiagram.png)
-The web server is used by Heroku, which is a free application deployment platform.
+**An alternative to the Roblox `InsertService` & `AssetService:LoadAssetAsync()`**
 
+This module and webservice provide a way to load Assets, such as Models,Decals, <br/>
+and Audio, from Roblox's CDN without using the built-in `InsertService` or<br/> `AssetService:LoadAssetAsync()`.<br/>
+This can be useful for developers who want to avoid certain limitations or restrictions<br/>
+imposed by Roblox on these services. (ex. Insert Wars) <br/>
+However it is not without its own limits, for example not all properties are supported yet,<br/>
+and some assets may not load correctly due to Roblox's security measures.<br/>
 ## Features
-* Parses RBXM files into JSON
-* Compiles JSON into a roblox model
-* Uses a heroku web app server
-* Uses a roblox lua module
-* Sandboxes lua files
+- Load Models, Decals, Audio, and other asset types directly from Roblox's CDN.
+- Supports a wide range of asset types including Models, Decals, Audio, Meshes, and more.
+- Avoid certain restrictions of `InsertService` and `AssetService:LoadAssetAsync()`,<br/>
+and also lets you load assets in environments where these services are not available.
+- Built in Sandboxer for sandboxing models to prevent exploits and other issues
+- Easy to use API for loading assets by their Asset ID.
+- Lightweight webservice that can be hosted on your own server or a cloud platform.<br/>
+*Bandwidth costs depending on your hosting provider and usage.*
+- Caches downloaded assets to improve performance and reduce bandwidth usage.<br/>
+*You will need to allocate at least **16 GB** of storage for the asset cache.*
+- Supports loading assets into a specified parent instance in Roblox.
+- Open source and customizable to fit your specific needs.
+- Regularly updated to support new asset types and features.
+- Provides detailed error messages and logging for troubleshooting.
+- Compatible with Roblox Studio and Roblox games.
+- Easy to configure and integrate into existing projects.
+- Actively maintained with a community of developers contributing to its improvement.
+- Easy to use blocklist system to prevent loading of unwanted assets.
 
-## Packages
-You will need Heroku CLI to use set up the server and a heroku account.
+## Diagram
+![diagram](static/images/diagram.png)
 
-Installation Guide: https://devcenter.heroku.com/articles/heroku-cli
+## Installation
+1. Clone or download the repository from GitHub.
+2. Set up the webservice on your own server or use a hosting service<br/>
+that supports Python web applications.
+3. Include the module in your Roblox project.
+4. Configure the module to point to your webservice URL.
 
-Mac Installation: ```brew tap heroku/brew && brew install heroku```
+**IMPORTANT**<br/>
+This is primarily designed to be used with a self-hosted webservice.<br/>
+Using a public webservice may lead to unexpected downtime or rate limiting.<br/>
+If you choose to use a public webservice, ensure you trust the provider<br/>
+and understand the potential risks involved.<br/>
+Also this webservice is NOT designed to be ran on Windows servers due to the way<br/>
+file locking is handled. Use a Linux based server for best results.<br/>
 
-Ubuntu 16+ Installation: ```sudo snap install --classic heroku```
-
-## Installing
-Download the repo using git, or download as ZIP.
-
-```git pull https://github.com/Robuyasu/Insert-Cloud.git --allow-unrelated-histories```
-
-Navigate to insertserver directory. Then, use command ```heroku create```.
-On the heroku dashboard website, navigate to your application and use the heroku/go buildpack in settings.
-Go to Config Vars, and set up your environment variables there.
-
-After setting the server up, test it by sending a get request.
-Then, and set up a server script and requiring the InsertCloud in one of your roblox places.
-
-```lua
-local InsertCloud = require(2988483384);
-local Key = 'APIKEY';
-local URL = 'https://appname.herokuapp.com/assets/';
-
-local Model = InsertCloud:LoadAsset(URL, KEY, RBXID);
-InsertCloud:CompileAsset(Model, workspace)
+## Usage
+### Webservice Setup
+This application is a Golang webserver.
+If you do not have a build here are the steps to set it up:
+1. Ensure you have go installed on your server
+2. Build the application with `go build -o app . `
+3. Run the created binary
+**Production or Local**
 ```
-InsertCloud also comes with most of the InsertService functions, and a built in Sandbox which helps sandbox your scripts.
+./app
+```
+REQUIRED ENVIRONMENT VARIABLES:
+- `RBX_API_KEY` - A Roblox Open Cloud API Key with the scopes `asset:read` and `legacy-asset:manage`
 
-## ENV Variables
-HEROKU_APP_NAME : The name of your heroku app
+The webservice will be available at `http://localhost:5000` by default when using Local
+### Roblox Module Usage
+1. Require the module in your Roblox script.
+2. Use the `LoadAssetAsync` function to load an asset by its Asset ID.
+```lua
+local InsertWebservice = require(path.to.InsertWebserviceFrontend)
+local assetId = 123456789 -- Replace with your asset ID
+local parentInstance = workspace -- Replace with the desired parent instance
+local buildParent=game:GetService("ReplicatedStorage") -- Optional: Replace with the desired build parent instance
+local url="https://your-webservice-url.com/api/v3/asset" -- Replace with your webservice URL, default path for asset loading is /api/v3/asset/<assetId>?placeId=<placeId>
+local asset,err = InsertWebservice:LoadAssetAsync(url,assetId,buildParent) --Recommended to build the asset in a service like ReplicatedStorage first
+if err then
+    print("Error info was returned");
+else
+    InsertWebservice:compile_asset(asset,parentInstance) --Then compile it to the desired parent instance
+end;
 
-HEROKU_KEY : The API key for your heroku account
+```
 
-USRNAME : The username or email of your heroku account
+### Limitations
+- Not all asset properties are supported yet.
+- Some assets may not load correctly due to Roblox's security measures.
+- Performance may vary based on the webservice hosting and network conditions.
 
-KEY : The API key for your application. Make sure it is secure
+## Contributing
 
-## Usages
-You can parse a RBXM file into JSON using this by doing
-```https://herokuappname.herokuapp.com/assets/apikey/rbxid```
-You can also use the lua module to parse the JSON and compile that into a model, and having that as a replacement for InsertService.
+Contributions are welcome! Please fork the repository and submit a pull request with your changes.
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+## Requirements
+- Go 1.26.3 or higher for the webservice.
+- Roblox Studio for using the module in your projects.
+- A Roblox API key for accessing the asset delivery API.<br/>
+Permissions required: `legacy-asset: manage` and `asset: read`<br/>
+For instructions on how to generate an api key go to [Roblox's Documentation](https://create.roblox.com/docs/cloud/auth/api-keys)<br/>
+
+## Disclaimer
+This module and webservice are not affiliated with or endorsed by Roblox Corporation.<br/>
+Use at your own risk, although nobody has been banned for making their own `InsertService`.<br/>
+However, please ensure that you comply with Roblox's Terms of Use and Community Standards<br/>
+when using this module.<br/>
+**THIS DOES NOT ALLOW CIRCUMVENTING PAID ASSETS OR LOADING ASSETS YOU DO NOT OWN THAT ARE NOT PUBLIC.**

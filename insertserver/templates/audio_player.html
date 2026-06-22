@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Asset "{{ .AssetName }}"</title>
+        <link rel="stylesheet" href="/static/css/audio_player.css"/>
+        <link rel="icon" href="/static/images/favicon.png"/>
+        <link rel="icon" href="/favicon.ico"/>
+    </head>
+    <body>
+        <canvas id="visualizer"></canvas>
+        <h1 class="asset_title">{{ .AssetName }} ({{ .AssetId }})</h1>
+        <h1 class="asset_moderated_message" hidden>Asset is private, archived, or has been moderated</h1>
+        <div id="mediaPlayerControls">
+            <audio id="playable" src="{{ .CacheSource }}" controls hidden></audio>
+            <div id="picture"></div>
+            <div id="icon_playpause" class="media_icon icon_play"></div>
+            <input id="slider_time" type="range" value="0"/>
+        </div>
+        <script id="mediaPlayerHandler">window.addEventListener("load",(function(e){var n,t,i,a,d,c=document.getElementById("picture"),r=document.getElementById("icon_playpause"),o=document.getElementById("slider_time"),u=document.getElementById("playable"),l=document.getElementById("visualizer"),m=!1;u.load(),c.style.backgroundImage="url('{{ .ThumbnailUrl }}')",u.addEventListener("timeupdate",(function(){o.value=u.currentTime,o.max=u.duration})),o.addEventListener("change",(function(){u.currentTime=o.value})),u.addEventListener("ended",(function(e){o.value=o.max})),u.addEventListener("pause",(function(e){m=!1,r.className="media_icon icon_play"})),u.addEventListener("play",(function(e){m=!0,r.className="media_icon icon_pause"})),r.addEventListener("click",(function(e){n||(n=new AudioContext,t=n.createMediaElementSource(u),(i=new AnalyserNode(n)).fftSize=256,i.maxDecibels=-4,t.connect(i),i.connect(n.destination),a=i.frequencyBinCount,d=new Uint8Array(a),function(){l.width=window.innerWidth,l.height=window.innerHeight;var e=l.getContext("2d");!function n(){i.getByteFrequencyData(d),l.width=window.innerWidth,l.height=window.innerHeight;var t=l.width,c=l.height,r=t/a;e.clearRect(0,0,t,c);for(var o=0;o<a;o++){var u=d[o]/255*(.6*c),m=r*o;e.fillStyle=`rgb(${u+100} 50 50)`,renderWidth=r-2,renderWidth<1&&(renderWidth=1),e.fillRect(m,0,renderWidth,u)}window.requestAnimationFrame(n)}()}()),m?(m=!1,r.className="media_icon icon_play",u.pause()):(m=!0,r.className="media_icon icon_pause",u.play())}))}))</script>
+    </body>
+</html>

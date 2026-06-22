@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{{ .Title }}</title>
+		<link rel="icon" type="image/png" href="/static/images/favicon.png"/>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+        <link rel="stylesheet" href="/static/css/styles.css"/>
+        <link rel="stylesheet" href="/static/css/main.css"/>
+        <script src="/static/js/main-eyT2df83nda.js"></script>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <meta name="author" content="Superduperdev2 Inc."/>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,requiresActiveX=true" />
+        <meta name="description" content="Welcome to the Superduperdev2 Inc. Official Website!&#xA;Here you can find various info on our projects, hiring status,&#xA;and more!"/>
+        <meta property="og:url" content="https://superduperdev2.com"/>
+        <meta property="og:site_name" content="Superduperdev2 Inc. Official Website"/>
+        <meta property="og:title" content="Lander"/>
+        <meta property="og:description" content="Welcome to the Superduperdev2 Inc. Official Website!&#xA;Here you can find various info on our projects, hiring status,&#xA;and more!"/>
+        <meta property="og:image" content="https://superduperdev2.com/static/images/logo.png"/>
+        <meta property="twitter:url" content="https://superduperdev2.com"/>
+        <meta property="twitter:description" content="Welcome to the Superduperdev2 Inc. Official Website!&#xA;Here you can find various info on our projects, hiring status,&#xA;and more!"/>
+        <meta property="twitter:title" content="Lander"/>
+        <meta property="twitter:image" content="https://superduperdev2.com/static/images/logo.png"/>
+    </head>
+    <body class="lander">
+        <div id="main">
+            <div id="information" class="div80 displayblock center rounded center_text">
+                <img src="{{ .Img }}" width="256px" height="256px"></img>
+                <h1 class="title">Uh Oh!</h1>
+                <p class="large_text">
+                    {{ .Text1 }}
+                </p>
+                <p class="large_text">
+                    {{ .Text2 }}
+                </p>
+                <button class="go_back_button" onclick="window.location.href='/'">Go Back</button>
+            </div>
+        </div>
+    </body>
+</html>

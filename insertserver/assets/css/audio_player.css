@@ -1,0 +1,61 @@
+body {
+    background-color: black;
+}
+h1.asset_title {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 2em;
+    color:rgb(255, 255, 255);
+    position: absolute;
+    z-index: 8;
+}
+h1.asset_moderated_message {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 2em;
+    color:cadetblue;
+    position: absolute;
+    z-index: 8;
+}
+div.icon_play{
+    background-image: url("/static/images/play_icon.svg");
+}
+div.icon_play:hover{
+    background-image: url("/static/images/play_icon_hover.svg");
+}
+div.icon_pause{
+    background-image: url("/static/images/pause_icon.svg");
+}
+div.icon_pause:hover{
+    background-image: url("/static/images/pause_icon_hover.svg");
+}
+div.media_icon {
+    height: 32px;
+    width: 32px;
+    background-size: cover;
+    position: absolute;
+    top: calc(100% - 34px);
+    z-index: 5;
+}
+#picture {
+    height: 128px;
+    width: 128px;
+    background-size: cover;
+    position: absolute;
+    top: calc(100% - 164px);
+    z-index: 6;
+}
+#visualizer {
+    width:100%;
+    height:100%;
+    top: 0px;
+    position: absolute;
+    background-color: black;
+    z-index:0;
+}
+#slider_time {
+    position: absolute;
+    width: calc(100% - 50px);
+    height: 8px;
+    left: 40px;
+    top: calc(100% - 25px);
+    z-index: 5;
+}
