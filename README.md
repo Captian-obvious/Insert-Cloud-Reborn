@@ -34,7 +34,7 @@ and also lets you load assets in environments where these services are not avail
 ## Installation
 1. Clone or download the repository from GitHub.
 2. Set up the webservice on your own server or use a hosting service<br/>
-that supports Python web applications.
+that supports Go web applications.
 3. Include the module in your Roblox project.
 4. Configure the module to point to your webservice URL.
 
