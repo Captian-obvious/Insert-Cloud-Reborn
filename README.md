@@ -29,7 +29,7 @@ and also lets you load assets in environments where these services are not avail
 - Easy to use blocklist system to prevent loading of unwanted assets.
 
 ## Diagram
-![diagram](static/images/diagram.png)
+![diagram](diagram_but_better.png)
 
 ## Installation
 1. Clone or download the repository from GitHub.
