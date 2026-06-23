@@ -75,7 +75,7 @@ local asset,err = InsertCloud:LoadAssetAsync(url,assetId,buildParent) --Recommen
 if err then
     print("Error info was returned");
 else
-    InsertCloud:compile_asset(asset,parentInstance) --Then compile it to the desired parent instance
+    InsertCloud:CompileAsset(asset,parentInstance) --Then compile it to the desired parent instance
 end;
 
 ```
