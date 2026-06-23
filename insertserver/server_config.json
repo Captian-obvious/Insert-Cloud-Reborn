@@ -6,10 +6,7 @@
         "Additional":{}
     },
     "Logging":{
-        "type":"stdout",
-        "retryDelaySeconds":5,
-        "retryAttempts":3,
-        "path":"logs/api.log"
+        "type":"stdout"
     },
     "ServerConfig":{
         "FileCachingEnabled":false,
