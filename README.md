@@ -91,6 +91,9 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Lineage
+This project began as a conceptual fork of [Lunascaped/Insert-Cloud](https://github.com/Lunascaped/Insert-Cloud), but has since been fully rewritten from the ground up. No original source code remains except for microscopic references to the original.
 ## Requirements
 - Go 1.26.3 or higher for the webservice.
 - Roblox Studio for using the module in your projects.
