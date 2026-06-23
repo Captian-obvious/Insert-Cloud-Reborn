@@ -513,21 +513,21 @@ end;
 Deprecated Varient of InsertCloud:CompileAsset()
 ]]
 @deprecated
-function compile_asset(model:Model,parent:Instance?)
+function mod:compile_asset(model:Model,parent:Instance?)
     return self:CompileAsset(model,parent)
 end
 --[[ 
 Deprecated Varient of InsertCloud:PrepareAsset()
 ]]
 @deprecated
-function prepare_asset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
+function mod:prepare_asset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
     return self:PrepareAsset(model,parent,position,loadSettings)
 end
 --[[
 Deprecated Varient of InsertCloud:RestartServer()
 ]]
 @deprecated
-function restart_server(url:string,apikey:string,reason:string)
+function mod:restart_server(url:string,apikey:string,reason:string)
     return self:RestartServer(url,apikey,reason)
 end
 --[[ 
