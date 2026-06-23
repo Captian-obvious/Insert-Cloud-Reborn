@@ -45,6 +45,7 @@ If you choose to use a public webservice, ensure you trust the provider<br/>
 and understand the potential risks involved.<br/>
 Also this webservice is NOT designed to be ran on Windows servers due to the way<br/>
 file locking is handled. Use a Linux based server for best results.<br/>
+However if you do build it on Windows, it has ANSI support.<br/>
 
 ## Usage
 ### Webservice Setup
@@ -57,7 +58,7 @@ If you do not have a build here are the steps to set it up:
 ```
 ./app
 ```
-REQUIRED ENVIRONMENT VARIABLES:
+#### REQUIRED ENVIRONMENT VARIABLES:
 - `RBX_API_KEY` - A Roblox Open Cloud API Key with the scopes `asset:read` and `legacy-asset:manage`
 
 The webservice will be available at `http://localhost:5000` by default when using Local
