@@ -28,7 +28,7 @@ function mod:applyAssetId(assetId:string,isIntersection,isExperimental)
         local id=assetId:match("(%d+)$");
         if id then
             local assetIdToLoad=tonumber(id);
-            local childData=self.modules.icloud:loadSolidModel(assetIdToLoad);
+            local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
             if not childData then
                 warn("Failed to load SolidModel asset with ID "..tostring(assetIdToLoad)..". Make sure the asset ID is correct and the asset is a valid SolidModel.");
                 return nil;

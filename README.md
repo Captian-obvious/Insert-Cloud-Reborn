@@ -66,16 +66,16 @@ The webservice will be available at `http://localhost:5000` by default when usin
 1. Require the module in your Roblox script.
 2. Use the `LoadAssetAsync` function to load an asset by its Asset ID.
 ```lua
-local InsertWebservice = require(path.to.InsertWebserviceFrontend)
+local InsertCloud = require(path.to.InsertCloud.Module)
 local assetId = 123456789 -- Replace with your asset ID
 local parentInstance = workspace -- Replace with the desired parent instance
 local buildParent=game:GetService("ReplicatedStorage") -- Optional: Replace with the desired build parent instance
 local url="https://your-webservice-url.com/api/v3/asset" -- Replace with your webservice URL, default path for asset loading is /api/v3/asset/<assetId>?placeId=<placeId>
-local asset,err = InsertWebservice:LoadAssetAsync(url,assetId,buildParent) --Recommended to build the asset in a service like ReplicatedStorage first
+local asset,err = InsertCloud:LoadAssetAsync(url,assetId,buildParent) --Recommended to build the asset in a service like ReplicatedStorage first
 if err then
     print("Error info was returned");
 else
-    InsertWebservice:compile_asset(asset,parentInstance) --Then compile it to the desired parent instance
+    InsertCloud:compile_asset(asset,parentInstance) --Then compile it to the desired parent instance
 end;
 
 ```
@@ -93,7 +93,9 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 This project is licensed under the MIT License. See the LICENSE file for details.
 
 ## Lineage
+
 This project began as a conceptual fork of [Lunascaped/Insert-Cloud](https://github.com/Lunascaped/Insert-Cloud), but has since been fully rewritten from the ground up. No original source code remains except for microscopic references to the original.
+
 ## Requirements
 - Go 1.26.3 or higher for the webservice.
 - Roblox Studio for using the module in your projects.

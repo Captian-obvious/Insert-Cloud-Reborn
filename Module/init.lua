@@ -131,7 +131,9 @@ function mod:initialize()
     end;
     replicatedObjects:Destroy();
 end;
---[[ Initializes the SolidModeling part of the module ]]
+--[[
+Initializes the SolidModeling part of the module
+]]
 function mod:initializeSolidModeling(fetchUrl:string, parseUrl:string)
     if self.SolidModeling.isInitialized then return end;
     if fetchUrl and typeof(fetchUrl)~="string" then return end;
@@ -257,7 +259,7 @@ function mod:LoadAssetAsync(url:string,assetid:number,loadSettings,parent:Instan
         else
             modelContain,ErrorInfo=fetchAndDecode();
         end;
-        self:prepare_asset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:getDefaultSettings());
+        self:PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:getDefaultSettings());
         return modelContain,ErrorInfo;
     else
         self:logMsg({
@@ -267,18 +269,10 @@ function mod:LoadAssetAsync(url:string,assetid:number,loadSettings,parent:Instan
         return nil;
     end;
 end;
---[[
-Loads model by ID <code>assetid</code> from <code>url</code> and returns a container model for it (deprecated)
-]]
-@deprecated
-function mod:LoadAsset(url:string,assetid:number,loadSettings,parent:Instance?,position:Vector3,ver:number):Model
-    --self:logMsg("warn","The LoadAsset method is deprecated, please use LoadAssetAsync instead");
-    return self:LoadAssetAsync(url,assetid,loadSettings,parent,position,ver);
-end;
 --[[ 
 Loads a SolidModel asset and returns its ChildData property (used internally to make UnionOperations work)
 ]]
-function mod:loadSolidModel(assetid:number)
+function mod:LoadSolidModel(assetid:number)
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if self.SolidModeling.isInitialized then
         local assetid_string=tostring(assetid);
@@ -344,16 +338,20 @@ function mod:loadSolidModel(assetid:number)
         return nil;
     end;
 end;
---[[ Gets default settings for loading assets ]]
-function mod:getDefaultSettings()
+--[[ 
+Gets default settings for loading assets 
+]]
+function mod:GetDefaultSettings()
     return self.Configuration.DefaultSettings;
 end;
---[[ Initializes model for compiling ]]
-function mod:prepare_asset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
+--[[ 
+Initializes model for compiling 
+]]
+function mod:PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
     if not self.isInitialized then
         self:logMsg({
             MessageType="error",
-            MessageText="You must initialize the module before calling the prepare_asset method"
+            MessageText="You must initialize the module before calling the PrepareAsset method"
         });
         return nil;
     end;
@@ -396,8 +394,10 @@ function mod:prepare_asset(model:Model,parent:Instance?,position:Vector3?,loadSe
     end;
     model.Parent=parent or self.Configuration.DefaultParent or workspace;
 end;
---[[ Fixes model for completion of inserted object, insert tool also calls this for security ]]
-function mod:compile_asset(model:Model,parent:Instance?)
+--[[ 
+Fixes model for completion of inserted object, insert tool also calls this for security 
+]]
+function mod:CompileAsset(model:Model,parent:Instance?)
     if not self.isInitialized then
         self:logMsg({
             MessageType="error",
@@ -429,7 +429,9 @@ function mod:compile_asset(model:Model,parent:Instance?)
     model:Destroy();
     return unpack(root_instances);
 end;
---[[ Loads code based on a type, code, and the player]]
+--[[ 
+Loads code based on a type, code, and the player
+]]
 function mod:LoadCode(code:string,typ:string,plr:Player,parent:Instance,enabled:boolean)
     local sandboxType=self.Configuration.Sandboxed and "Sandbox" or "Normal";
     if typ=="server" then
@@ -447,12 +449,15 @@ function mod:LoadCode(code:string,typ:string,plr:Player,parent:Instance,enabled:
         return s;
     end;
 end;
---[[ Restarts the server (requires *YOUR* API key) ]]
-function mod:restart_server(url:string,apikey:string,reason:string):boolean?
+
+--[[ 
+Restarts the server (requires *YOUR* API key) 
+]]
+function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
     if not self.isInitialized then
         self:logMsg({
             MessageType="error",
-            MessageText="You must initialize the module before calling the restart_server method"
+            MessageText="You must initialize the module before calling the RestartServer method"
         });
         return nil;
     end;
@@ -495,6 +500,49 @@ function mod:restart_server(url:string,apikey:string,reason:string):boolean?
         return false;
     end;
     return res;
+end;
+--[[
+Deprecated varient of InsertCloud:LoadAssetAsync()
+]]
+@deprecated
+function mod:LoadAsset(url:string,assetid:number,loadSettings,parent:Instance?,position:Vector3,ver:number):Model
+    --self:logMsg("warn","The LoadAsset method is deprecated, please use LoadAssetAsync instead");
+    return self:LoadAssetAsync(url,assetid,loadSettings,parent,position,ver);
+end;
+--[[ 
+Deprecated Varient of InsertCloud:CompileAsset()
+]]
+@deprecated
+function compile_asset(model:Model,parent:Instance?)
+    return self:CompileAsset(model,parent)
+end
+--[[ 
+Deprecated Varient of InsertCloud:PrepareAsset()
+]]
+@deprecated
+function prepare_asset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
+    return self:PrepareAsset(model,parent,position,loadSettings)
+end
+--[[
+Deprecated Varient of InsertCloud:RestartServer()
+]]
+@deprecated
+function restart_server(url:string,apikey:string,reason:string)
+    return self:RestartServer(url,apikey,reason)
+end
+--[[ 
+Deprecated varient of InsertCloud:LoadSolidModel()
+]]
+@deprecated
+function mod:loadSolidModel(assetid:number)
+    return self:LoadSolidModel(assetid)
+end
+--[[ 
+Deprecated varient of InsertCloud:GetDefaultSettings()
+]]
+@deprecated
+function mod:getDefaultSettings()
+    return self:GetDefaultSettings();
 end;
 --[[
 Prints the developers of the module to console.
