@@ -747,9 +747,8 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 	}
 	req.Header.Set("x-api-key", API_KEY)
 	req.Header.Set("Roblox-Place-Id", placeId)
-	req.Header.Set("Accept-Encoding", "*")
-	req.Header.Set("User-Agent", USER_AGENT)
 	req.Header.Set("AssetType", assetType)
+	req.Header.Set("User-Agent", USER_AGENT)
 	req.Header.Set("Accept", "application/json")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
