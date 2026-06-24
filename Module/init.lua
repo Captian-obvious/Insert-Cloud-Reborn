@@ -145,7 +145,7 @@ end;
 --[[
 Loads model by ID <code>assetid</code> from <code>url</code> and returns a container model for it
 ]]
-function mod:LoadAssetAsync(url:string|Secret,assetid:number,loadSettings,parent:Instance?,position:Vector3,ver:number):Model
+function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent:Instance?,position:Vector3,ver:number):Model
     if type(url) ~= "string" and typeof(url)~="Secret" then return error("URL Parameter is invalid, must be a valid string") end;
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
@@ -161,7 +161,7 @@ function mod:LoadAssetAsync(url:string|Secret,assetid:number,loadSettings,parent
             };
             local full_url;
             if typeof(url)=="Secret" then
-                appended="/"..assetid_string.."?placeId="..game.PlaceId;
+                local appended="/"..assetid_string.."?placeId="..game.PlaceId;
                 if ver then
                     appended=appended.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
                 end;

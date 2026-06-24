@@ -256,10 +256,10 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
     local part=Instance.new(typeToInit);
     part.Parent=parent;
     local function readChildData(data)
-		return pcall(function()
-			return (experimental) and mod.modules.unionBuilder:applyChildDataNew(data,isIntersection) or mod.modules.unionBuilder:applyChildData(data,isIntersection);
-		end);
-	end;
+        return pcall(function()
+            return (experimental) and mod.modules.unionBuilder:applyChildDataNew(data,isIntersection) or mod.modules.unionBuilder:applyChildData(data,isIntersection);
+        end);
+    end;
     local function FinalizePart(part,model)
         if model==nil then return end;
         if model.ClassName=="PartOperation" then
@@ -522,12 +522,17 @@ function mod.buildProps(instances,refs,loadSettings)
                 propName=string.upper(string.sub(propName, 0, 1))..string.sub(propName,2); --case the property correctly
                 if (propName=="Color3uint8") then
                     propName="Color"; -- fixes the format changes to RBXM
+                elseif (propName=="SourceAssetId") then
+                    obj:SetAttribute("AssetID",prop.value);
                 elseif (propName=="Source") then
-                    obj.LOAD.Value=prop.value;
+                    local brokenCodeToFix="^-%-%[%["..string.char(10).."%-%-%[%[";
+                    local source:string=prop.value;
+                    source=source:gsub(brokenCodeToFix,"--[[");
+                    obj:SetAttribute("Source",source);
                 elseif (propName=="Disabled" and prop.value==false) then
-                    obj.IsDisabled.Value=false;
+                    obj:SetAttribute("IC_Enabled",not prop.value);
                     if not mod.Configuration.DisableScripts then
-                        obj.Disabled=prop.value;
+                        obj.Enabled=not prop.value;
                     end;
                 elseif (propName=="Playing" or propName=="IsPlaying" and prop.value==true) then
                     obj.Playing=false;
@@ -604,31 +609,3 @@ function mod:buildAsset(data,root_parent,loadSettings)
     end;
 end;
 return mod;
-
---[[for i,ref_class in pairs(rbxm.class_ref) do
-            if not mod.dummyInstances[ref_class.Name] and not table.find(InstancesCannotCreate,ref_class.Name) then
-                local dummyInstance=Instance.new(ref_class.Name);
-                mod.dummyInstances[ref_class.Name]=dummyInstance;
-            end;
-        end;--]]
---[[local enumRules = {
-            ["Surface"] = Enum.SurfaceType,
-            ["Shape"] = Enum.PartType,
-            ["FormFactor"] = Enum.FormFactor,
-            ["Material"] = Enum.Material,
-            ["MeshType"] = Enum.MeshType,
-            ["RenderFidelity"] = Enum.RenderFidelity,
-            ["CameraType"] = Enum.CameraType,
-        };--]]
---[[for pattern, enumType in pairs(enumRules) do
-                if string.find(propName,pattern) then
-                    return enumType;
-                end;
-            end;--]]
-            -- Fallback to reflection
---[[
-            local r=rot[1].vector3;
-            local u=rot[2].vector3;
-            local l=rot[3].vector3;
-            --]]
-            

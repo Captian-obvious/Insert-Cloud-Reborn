@@ -138,7 +138,10 @@ function mod:applyChildData(childData,isIntersection)
         warn("Failed to get data: "..res);
     else
         print_if_debug(res);
-        local model=self.modules.modelAssembler:buildAsset({modelData=res},self.Services.ReplicatedStorage);
+        local replicated=self.Services.ReplicatedStorage;
+        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder",replicated);
+        loadFolder.Name="UnionOperationLoadCache";
+        local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
         local tocheck=model:GetDescendants();
         for i=1,#tocheck do
             local inst=tocheck[i];
@@ -186,9 +189,9 @@ function mod:applyChildData(childData,isIntersection)
             local suc,Union=pcall(function()
                 if isIntersection then
                     partToAttachTo=partToAttachTo:IntersectAsync(parts,Enum.CollisionFidelity.Default,Enum.RenderFidelity.Precise);
-                    partToAttachTo.Parent=self.Services.ReplicatedStorage;
+                    partToAttachTo.Parent=loadFolder;
                     partToAttachTo=old:IntersectAsync({partToAttachTo},Enum.CollisionFidelity.Default,Enum.RenderFidelity.Precise); -- this is odd but fixes the problems
-                    partToAttachTo.Parent=self.Services.ReplicatedStorage;
+                    partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     centerUnionPivot(partToAttachTo,partToAttachTo.Parent);
                     old:Destroy();
@@ -203,7 +206,7 @@ function mod:applyChildData(childData,isIntersection)
                 print_if_debug(negativeParts);
                 if #negativeParts~=0 then
                     partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,Enum.CollisionFidelity.Default,Enum.RenderFidelity.Precise);
-                    partToAttachTo.Parent=self.Services.ReplicatedStorage;
+                    partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();
                 end;
@@ -224,7 +227,7 @@ function mod:applyChildData(childData,isIntersection)
                 warn("Union operation failed: No part was returned.");
                 return nil;
             end;
-            partToAttachTo.Parent=self.Services.ReplicatedStorage;
+            partToAttachTo.Parent=loadFolder;
             model:Destroy();
             return partToAttachTo;
         end;
@@ -252,7 +255,10 @@ function mod:applyChildDataNew(childData,isIntersection)
         warn("Failed to get data: "..res);
     else
         print_if_debug(res);
-        local model=self.modules.modelAssembler:buildAsset({modelData=res},self.Services.ReplicatedStorage);
+        local replicated=self.Services.ReplicatedStorage;
+        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder",replicated);
+        loadFolder.Name="UnionOperationLoadCache";
+        local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
         local tocheck=model:GetDescendants();
         for i=1,#tocheck do
             local inst=tocheck[i];
@@ -300,9 +306,9 @@ function mod:applyChildDataNew(childData,isIntersection)
             local suc,Union=pcall(function()
                 if isIntersection then
                     partToAttachTo=self.Services.GeometryService:IntersectAsync(partToAttachTo,parts,options)[1];
-                    partToAttachTo.Parent=self.Services.ReplicatedStorage;
+                    partToAttachTo.Parent=loadFolder;
                     partToAttachTo=self.Services.GeometryService:IntersectAsync(old,{partToAttachTo},options)[1]; -- this is odd but fixes the problems
-                    partToAttachTo.Parent=self.Services.ReplicatedStorage;
+                    partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     centerUnionPivot(partToAttachTo,partToAttachTo.Parent);
                     old:Destroy();
@@ -317,7 +323,7 @@ function mod:applyChildDataNew(childData,isIntersection)
                 print_if_debug(negativeParts);
                 if #negativeParts~=0 then
                     partToAttachTo=self.Services.GeometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
-                    partToAttachTo.Parent=self.Services.ReplicatedStorage;
+                    partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();
                 end;
@@ -338,7 +344,7 @@ function mod:applyChildDataNew(childData,isIntersection)
                 warn("Union operation failed: No part was returned.");
                 return nil;
             end;
-            partToAttachTo.Parent=self.Services.ReplicatedStorage;
+            partToAttachTo.Parent=loadFolder;
             model:Destroy();
             return partToAttachTo;
         end;

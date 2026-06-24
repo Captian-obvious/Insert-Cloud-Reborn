@@ -22,7 +22,7 @@ local mod={
         "BodyGyro",
         "BodyVelocity",
         "Fire"
-    }
+    },
 };
 
 function defuseScript(s)
@@ -50,9 +50,8 @@ function defuseInstance(inst)
     end;
     return malicious;
 end;
-
 function mod:defuseModel(parent)
-    for _,item in pairs(parent:GetDescendants()) do
+    for _,item:Instance in pairs(parent:GetDescendants()) do
         if item:IsA("BaseScript") then
             if defuseScript(item) then
                 print("Defused malicious script: "..item:GetFullName());
