@@ -667,7 +667,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch logType {
 	case "asset":
-		if LogData.AssetId == "" || LogData.UserId == 0 {
+		if LogData.AssetId == "" || LogData.UserId == 0 || formatInjectDefense(LogData.AssetId) || formatInjectDefense(LogData.AssetName) || formatInjectDefense(LogData.UserName) {
 			w.WriteHeader(400)
 			json.NewEncoder(w).Encode(ApiError{
 				Error:        "Invalid Model Log Entry provided",
@@ -687,7 +687,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		logString = fmt.Sprintf("[%s] User %s (%d) loaded asset %s (%s)%s", TIME_NOW.Format(time.RFC3339), LogData.UserName, LogData.UserId, LogData.AssetName, LogData.AssetId, jobIdString)
 	case "script":
-		if LogData.Source == "" || LogData.Timestamp == "" || LogData.UserId == 0 {
+		if LogData.Source == "" || LogData.Timestamp == "" || LogData.UserId == 0 || formatInjectDefense(LogData.Timestamp) || formatInjectDefense(LogData.UserName) {
 			w.WriteHeader(400)
 			json.NewEncoder(w).Encode(ApiError{
 				Error:        "Invalid Script Log Entry provided",
@@ -916,4 +916,8 @@ func LogEntry(logString string) {
 	case "stdout":
 		fmt.Println(logString)
 	}
+}
+
+func formatInjectDefense(str string) bool {
+	return strings.Contains(str, "%s") || strings.Contains(str, "%d") || strings.Contains(str, "%v")
 }
