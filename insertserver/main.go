@@ -667,7 +667,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch logType {
 	case "asset":
-		if LogData.AssetId == "" || LogData.UserId == 0 || formatInjectDefense(LogData.AssetId) || formatInjectDefense(LogData.AssetName) || formatInjectDefense(LogData.UserName) {
+		if LogData.AssetId == "" || LogData.UserId == 0 {
 			w.WriteHeader(400)
 			json.NewEncoder(w).Encode(ApiError{
 				Error:        "Invalid Model Log Entry provided",
@@ -685,9 +685,9 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 		if LogData.JobId != "" {
 			jobIdString = " in serverId " + LogData.JobId
 		}
-		logString = fmt.Sprintf("[%s] User %s (%d) loaded asset %s (%s)%s", TIME_NOW.Format(time.RFC3339), LogData.UserName, LogData.UserId, LogData.AssetName, LogData.AssetId, jobIdString)
+		logString = fmt.Sprintf("[%s] User %s (%d) loaded asset %s (%s)%s", TIME_NOW.Format(time.RFC3339), formatInjectDefense(LogData.UserName), LogData.UserId, formatInjectDefense(LogData.AssetName), formatInjectDefense(LogData.AssetId), formatInjectDefense(jobIdString))
 	case "script":
-		if LogData.Source == "" || LogData.Timestamp == "" || LogData.UserId == 0 || formatInjectDefense(LogData.Timestamp) || formatInjectDefense(LogData.UserName) {
+		if LogData.Source == "" || LogData.Timestamp == "" || LogData.UserId == 0 {
 			w.WriteHeader(400)
 			json.NewEncoder(w).Encode(ApiError{
 				Error:        "Invalid Script Log Entry provided",
@@ -702,7 +702,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 		if LogData.JobId != "" {
 			jobIdString = " in serverId " + LogData.JobId
 		}
-		logString = fmt.Sprintf("[%s] User %s (%d) ran a %s script at %s%s. View its source at path -> %s", TIME_NOW.Format(time.RFC3339), LogData.UserName, LogData.UserId, LogData.Type, LogData.Timestamp, jobIdString, "/test/script.lua")
+		logString = fmt.Sprintf("[%s] User %s (%d) ran a %s script at %s%s. View its source at path -> %s", TIME_NOW.Format(time.RFC3339), formatInjectDefense(LogData.UserName), LogData.UserId, formatInjectDefense(LogData.Type), formatInjectDefense(LogData.Timestamp), formatInjectDefense(jobIdString), "/test/script.lua")
 	}
 	LogEntry(logString)
 	json.NewEncoder(w).Encode(map[string]any{
@@ -918,6 +918,6 @@ func LogEntry(logString string) {
 	}
 }
 
-func formatInjectDefense(str string) bool {
-	return strings.Contains(str, "%s") || strings.Contains(str, "%d") || strings.Contains(str, "%v")
+func formatInjectDefense(str string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(str, "%", "%%"), "\n", "\\n")
 }
