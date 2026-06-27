@@ -252,7 +252,7 @@ func DecodePropXML(prop *XMLProperty, inst *Instance, ctx *RbxmxContext) error {
 		if err != nil {
 			return err
 		}
-		outputProp.Value = val
+		outputProp.Value = PurifyFloatValue(val)
 		outputProp.Type = "rbxf32"
 	case "token":
 		val, err := strconv.ParseInt(prop.Value, 10, 0)
@@ -404,7 +404,7 @@ func decodeCFrame(ret *Property, prop *XMLProperty) (*Property, error) {
 	}
 	ret.Value = map[string]any{
 		"position": map[string]any{
-			"vector3": []float64{xval, yval, zval},
+			"vector3": []float64{PurifyFloatValue(xval), PurifyFloatValue(yval), PurifyFloatValue(zval)},
 		},
 		"rotation": rotation,
 	}
@@ -422,7 +422,7 @@ func decodeVector2(ret *Property, prop *XMLProperty) (*Property, error) {
 		return ret, err
 	}
 	ret.Type = "vector2"
-	ret.Value = []float64{xval, yval}
+	ret.Value = []float64{PurifyFloatValue(xval), PurifyFloatValue(yval)}
 	return ret, nil
 }
 func decodeVector3(ret *Property, prop *XMLProperty) (*Property, error) {
@@ -437,7 +437,7 @@ func decodeVector3(ret *Property, prop *XMLProperty) (*Property, error) {
 		return ret, err
 	}
 	ret.Type = "vector3"
-	ret.Value = []float64{xval, yval, zval}
+	ret.Value = []float64{PurifyFloatValue(xval), PurifyFloatValue(yval), PurifyFloatValue(zval)}
 	return ret, nil
 }
 func decodeUDim(ret *Property, prop *XMLProperty) (*Property, error) {
