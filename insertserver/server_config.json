@@ -2,7 +2,7 @@
     "AcceptsRequests":true,
     "HostInfo":{
         "ServerName":"insertserver",
-        "AppVersion":"3.27.5",
+        "AppVersion":"3.27.8",
         "Additional":{}
     },
     "Logging":{
