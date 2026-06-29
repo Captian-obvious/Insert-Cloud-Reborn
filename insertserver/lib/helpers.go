@@ -604,12 +604,12 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 
 func PurifyFloat32Value(Val float32) float32 {
 	ReturnVal := Val
-	FloatVal := float32(Val)
-	if math.IsInf(float64(FloatVal), 0) {
+	FloatVal := float64(Val)
+	if math.IsInf(FloatVal, 0) {
 		ReturnVal = 1000000000000
-	} else if math.IsInf(float64(FloatVal), -1) {
+	} else if math.IsInf(FloatVal, -1) {
 		ReturnVal = -1000000000000
-	} else if math.IsNaN(float64(FloatVal)) {
+	} else if math.IsNaN(FloatVal) {
 		ReturnVal = 0
 	}
 	return ReturnVal
