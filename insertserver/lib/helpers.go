@@ -42,10 +42,13 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 		for i := 0; i < sizeof; i++ {
 			out := RbxString(data)
 			encoded := false
+			//isFilteredString := false
 			raw := []byte(out)
 			if !utf8.Valid(raw) {
 				encoded = true
 				out = base64.StdEncoding.EncodeToString(raw)
+			} else {
+
 			}
 			properties[i] = Property{
 				Type:    "string",
@@ -78,7 +81,7 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 		for i := 0; i < sizeof; i++ {
 			properties[i] = Property{
 				Type:  "float64",
-				Value: Float64(data),
+				Value: PurifyFloatValue(Float64(data)),
 			}
 		}
 	case 0x06:
@@ -118,8 +121,8 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 			properties[i] = Property{
 				Type: "ray",
 				Value: Ray{
-					Origin:    []float32{values[0], values[1], values[2]},
-					Direction: []float32{values[3], values[4], values[5]},
+					Origin:    []float32{PurifyFloat32Value(values[0]), PurifyFloat32Value(values[1]), PurifyFloat32Value(values[2])},
+					Direction: []float32{PurifyFloat32Value(values[3]), PurifyFloat32Value(values[4]), PurifyFloat32Value(values[5])},
 				},
 			}
 		}
@@ -309,7 +312,7 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 			}
 			properties[i] = Property{
 				Type:  "physprops",
-				Value: []float32{values[0], values[1], values[2], values[3], values[4], absorption},
+				Value: []float32{PurifyFloat32Value(values[0]), PurifyFloat32Value(values[1]), PurifyFloat32Value(values[2]), PurifyFloat32Value(values[3]), PurifyFloat32Value(values[4]), PurifyFloat32Value(absorption)},
 			}
 		}
 	case 0x1A:
@@ -454,14 +457,14 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				data.ReadNumber(binary.LittleEndian, &f32)
 				retVal[attr] = Attribute{
 					Type:  "f32",
-					Value: f32,
+					Value: PurifyFloat32Value(f32),
 				}
 			case 6:
 				var f64 float64
 				data.ReadNumber(binary.LittleEndian, &f64)
 				retVal[attr] = Attribute{
 					Type:  "f64",
-					Value: f64,
+					Value: PurifyFloatValue(f64),
 				}
 			case 9:
 				var s float32
