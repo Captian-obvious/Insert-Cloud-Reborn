@@ -806,14 +806,14 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 			ResponseCode: 403,
 			Details:      details.Errors,
 		})
-	case 429:
+	/*case 429:
 		retryAfter := res.Header.Get("Retry-After")
 		if retryAfter != "" {
 			secs, _ := strconv.Atoi(retryAfter)
 			cooldownUntil := time.Now().Add(time.Duration(secs) * time.Second)
 
 			assetCooldown.Store(FINAL_URL, cooldownUntil)
-		}
+		}*/
 	default:
 		w.WriteHeader(res.StatusCode)
 		var details RobloxApiError
