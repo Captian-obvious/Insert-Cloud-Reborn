@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -72,6 +73,7 @@ var lastBatchLog int64
 var CONFIG_FILE_PATH string = os.Getenv("CONFIG_FILE_PATH")
 var STARTED_AT time.Time
 var BLOCKED_ASSET_IDS map[float64]struct{}
+var assetCooldown sync.Map // map[assetId]time.Time
 
 type LogJson struct {
 	AssetId   string `json:"AssetId"`
@@ -736,6 +738,7 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 	if assetType == "" {
 		assetType = "Model"
 	}
+
 	req, err := http.NewRequest("GET", FINAL_URL, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -752,7 +755,7 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 	req.Header.Set("Accept", "application/json")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadGateway)
 		json.NewEncoder(w).Encode(ApiError{
 			Error:        "Upstream server did not respond to request",
 			ResponseCode: 502,
@@ -803,6 +806,14 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 			ResponseCode: 403,
 			Details:      details.Errors,
 		})
+	case 429:
+		retryAfter := res.Header.Get("Retry-After")
+		if retryAfter != "" {
+			secs, _ := strconv.Atoi(retryAfter)
+			cooldownUntil := time.Now().Add(time.Duration(secs) * time.Second)
+
+			assetCooldown.Store(FINAL_URL, cooldownUntil)
+		}
 	default:
 		w.WriteHeader(res.StatusCode)
 		var details RobloxApiError
@@ -858,6 +869,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 	}
 	jDat, err := json.Marshal(jsonData)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ApiError{
 			Error:        "Failed to json encode data",
 			ResponseCode: 500,
