@@ -880,6 +880,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 				},
 			},
 		})
+		log.Print("An error occured while parsing data: "+err.Error())
 		return
 	}
 	fmt.Fprint(w, string(jDat))
