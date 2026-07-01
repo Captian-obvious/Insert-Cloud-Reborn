@@ -31,6 +31,10 @@ local Services={
     ReplicatedStorage=game:GetService("ReplicatedStorage"),
     InsertService=game:GetService("InsertService"),
 };
+local SolidModeling={
+    isInitialized=false,
+    urlToFetch=nil,
+};
 function get_model_center_old(mdl:Model):CFrame
     local x_sum,z_sum,x_tot,z_tot,y_low=0,0,0,0,math.huge;
     for i,v in ipairs(mdl:GetDescendants())do
@@ -107,11 +111,7 @@ local mod={
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
         ["vxnquish (@TNA_Cup)"]="Collaborator (helped with a few things on the server side)", -- Collaborator
         ["god (@servertechnology)"]="the idea man" -- idea man
-    },
-    SolidModeling={
-        isInitialized=false,
-        urlToFetch=nil,
-    },
+    }
 };
 --[[ Initializes the module ]]
 function mod:initialize()
@@ -135,11 +135,11 @@ end;
 Initializes the SolidModeling part of the module
 ]]
 function mod:initializeSolidModeling(fetchUrl:string, parseUrl:string)
-    if self.SolidModeling.isInitialized then return end;
+    if SolidModeling.isInitialized then return end;
     if fetchUrl and typeof(fetchUrl)~="string" then return end;
     if parseUrl and typeof(parseUrl)~="string" then return end;
-    self.SolidModeling.isInitialized=true;
-    self.SolidModeling.urlToFetch=fetchUrl;
+    SolidModeling.isInitialized=true;
+    SolidModeling.urlToFetch=fetchUrl;
     modules.unionBuilder.parseUrl=parseUrl;
 end;
 --[[
@@ -229,7 +229,7 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
                         return nil,errInf;
                     end;
                 else
-                    mod:logMsg({
+                    logMsg({
                         MessageType="error",
                         MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
                     });
@@ -237,7 +237,7 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
                 end;
             else
                 errInf=tostring(res);
-                mod:logMsg({
+                logMsg({
                     MessageType="error",
                     MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
                 });
@@ -283,9 +283,9 @@ Loads a SolidModel asset and returns its ChildData property (used internally to 
 ]]
 function mod:LoadSolidModel(assetid:number)
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
-    if self.SolidModeling.isInitialized then
+    if SolidModeling.isInitialized then
         local assetid_string=tostring(assetid);
-        local full_url=self.SolidModeling.urlToFetch.."/"..assetid_string.."?placeId="..game.PlaceId.."&type=SolidModel";
+        local full_url=SolidModeling.urlToFetch.."/"..assetid_string.."?placeId="..game.PlaceId.."&type=SolidModel";
         local suc,res=pcall(function()
             local response=Services.HttpService:RequestAsync({
                 Url=full_url,
@@ -326,14 +326,14 @@ function mod:LoadSolidModel(assetid:number)
                     return nil;
                 end;
             else
-                mod:logMsg({
+                logMsg({
                     MessageType="error",
                     MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
                 });
                 return nil;
             end;
         else
-            mod:logMsg({
+            logMsg({
                 MessageType="error",
                 MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
             });
