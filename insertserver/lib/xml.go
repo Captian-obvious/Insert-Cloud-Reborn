@@ -608,7 +608,7 @@ func decodeNumberSeq(ret *Property, prop *XMLProperty) error {
 	for k := 0; k < keypointCount; k++ {
 		keypoint := make([]float64, valueCount)
 		for i := 0; i < valueCount; i++ {
-			valueIndex := k * i
+			valueIndex := (k * valueCount) + i
 			val, err := strconv.ParseFloat(values[valueIndex], 64)
 			if err != nil {
 				return fmt.Errorf("%s", "Failed to parse NumberSequence: A value specified is invalid.")
@@ -631,7 +631,7 @@ func decodeColorSeq(ret *Property, prop *XMLProperty) error {
 	for k := 0; k < keypointCount; k++ {
 		keypoint := make([]float64, valueCount)
 		for i := 0; i < valueCount; i++ {
-			valueIndex := k * i
+			valueIndex := (k * valueCount) + i
 			val, err := strconv.ParseFloat(values[valueIndex], 64)
 			if err != nil {
 				return fmt.Errorf("%s", "Failed to parse ColorSequence: A value specified is invalid.")
