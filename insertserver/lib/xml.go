@@ -248,7 +248,7 @@ func DecodePropXML(prop *XMLProperty, inst *Instance, ctx *RbxmxContext) error {
 			outputProp.Type = "brickcolor"
 		}
 	case "float":
-		val, err := strconv.ParseFloat(prop.Value, 0)
+		val, err := strconv.ParseFloat(prop.Value, 64)
 		if err != nil {
 			return err
 		}
