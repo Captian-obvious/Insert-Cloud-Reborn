@@ -7,43 +7,43 @@ local mod={
         ["vxnquish (@TNA_Cup)"]="Collaborator (helped with a few things on the server side)", -- Collaborator
         ["god (@servertechnology)"]="the idea man" -- idea man
     },
-    modules={
-        modelAssembler=require(script.Dependancies.ModelAssembler),
-        json=require(script.Dependancies.JSON),
-        unionBuilder=require(script.Dependancies.UnionOperation),
-        modelDefuser=require(script.Dependancies.ModelDefuser),
-    },
-    Services={
-        HttpService=game:GetService("HttpService"),
-        ReplicatedStorage=game:GetService("ReplicatedStorage"),
-        InsertService=game:GetService("InsertService"),
-    },
     SolidModeling={
         isInitialized=false,
         urlToFetch=nil,
     },
-    Configuration={
-        Caching=true,
-        Sandboxed=true,
-        DisableScripts=true,
-        UnlockParts=true,
-        DefaultSettings={
-            AnchorParts=false,
-            ApplyAttributes=true,
-            DisableSolidModeling=false,
-            EnableLegacyClientScripts=false,
-            EnablePreciseMeshParts=true,
-            ExperimentalUnions=false,
-            FECompatible=false,
-            RemoveDecals=false,
-            RemoveScripts=false,
-            GridSize=0.0, --no snap by default
-            RotationSnap=45.0, -- 45 degrees default
-        },
-        DefaultParent=workspace,
-        DefaultBuildParent=workspace,
-    },
     debug_mode=false,
+};
+Configuration={
+    Caching=true,
+    Sandboxed=true,
+    DisableScripts=true,
+    UnlockParts=true,
+    DefaultSettings={
+        AnchorParts=false,
+        ApplyAttributes=true,
+        DisableSolidModeling=false,
+        EnableLegacyClientScripts=false,
+        EnablePreciseMeshParts=true,
+        ExperimentalUnions=false,
+        FECompatible=false,
+        RemoveDecals=false,
+        RemoveScripts=false,
+        GridSize=0.0, --no snap by default
+        RotationSnap=45.0, -- 45 degrees default
+    },
+    DefaultParent=workspace,
+    DefaultBuildParent=workspace,
+};
+modules={
+    modelAssembler=require(script.Dependancies.ModelAssembler),
+    json=require(script.Dependancies.JSON),
+    unionBuilder=require(script.Dependancies.UnionOperation),
+    modelDefuser=require(script.Dependancies.ModelDefuser),
+};
+Services={
+    HttpService=game:GetService("HttpService"),
+    ReplicatedStorage=game:GetService("ReplicatedStorage"),
+    InsertService=game:GetService("InsertService"),
 };
 function get_model_center_old(mdl:Model):CFrame
     local x_sum,z_sum,x_tot,z_tot,y_low=0,0,0,0,math.huge;
@@ -117,14 +117,14 @@ end;
 function mod:initialize()
     if self.isInitialized then return end;
     self.isInitialized=true;
-    self.modules.modelAssembler:initialize(self.Configuration,self);
+    modules.modelAssembler:initialize(Configuration,self);
     local replicatedObjects=script:WaitForChild("ReplicatedStorage"):Clone();
-    replicatedObjects.Parent=self.Services.ReplicatedStorage;
+    replicatedObjects.Parent=Services.ReplicatedStorage;
     for i,v in pairs(replicatedObjects:GetChildren()) do
-        if self.Services.ReplicatedStorage:FindFirstChild(v.Name) then
-            self.Services.ReplicatedStorage:FindFirstChild(v.Name):Destroy();
+        if Services.ReplicatedStorage:FindFirstChild(v.Name) then
+            Services.ReplicatedStorage:FindFirstChild(v.Name):Destroy();
         end;
-        v.Parent=self.Services.ReplicatedStorage;
+        v.Parent=Services.ReplicatedStorage;
         if v:FindFirstChild("MODULE") and v.MODULE:IsA("ObjectValue") then
             v.MODULE.Value=script;
         end;
@@ -140,7 +140,7 @@ function mod:initializeSolidModeling(fetchUrl:string, parseUrl:string)
     if parseUrl and typeof(parseUrl)~="string" then return end;
     self.SolidModeling.isInitialized=true;
     self.SolidModeling.urlToFetch=fetchUrl;
-    self.modules.unionBuilder.parseUrl=parseUrl;
+    modules.unionBuilder.parseUrl=parseUrl;
 end;
 --[[
 Loads model by ID <code>assetid</code> from <code>url</code> and returns a container model for it
@@ -150,7 +150,7 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
     if self.isInitialized then
-        local theCache=self.Services.ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",self.Services.ReplicatedStorage);
+        local theCache=Services.ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",Services.ReplicatedStorage);
         theCache.Name="Cache";
         local modelContain=nil;
         local assetid_string=tostring(assetid);
@@ -174,7 +174,7 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
             end;
             local errInf=nil;
             local suc,res=pcall(function()
-                local response=self.Services.HttpService:RequestAsync({
+                local response=Services.HttpService:RequestAsync({
                     Url=full_url,
                     Method="GET",
                     Headers={
@@ -184,12 +184,12 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
                 if response.Success then
                     print("Response size:",#response.Body);
                     local ok, parsed = pcall(function()
-                        return self.modules.json.decode(response.Body);
+                        return modules.json.decode(response.Body);
                     end);
                     if ok then
                         return parsed;
                     else
-                        self:logMsg({
+                        logMsg({
                             MessageType="error",
                             MessageText="Failed to parse JSON for asset " .. assetid_string .. ": " .. tostring(parsed)
                         });
@@ -198,7 +198,7 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
                 else
                     local statusCode=response.StatusCode;
                     local statusMessage=response.StatusMessage;
-                    errInf=self:logMsg({
+                    errInf=logMsg({
                         MessageType="error",
                         MessageText="Failed to load asset "..assetid_string.." due to request error: "..statusMessage.." ("..tostring(statusCode)..")",
                         Arguments={
@@ -212,17 +212,17 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
             if suc then
                 if res~=nil then
                     data.modelData=res;
-                    local loaded=self.modules.modelAssembler:buildAsset(data,parent,loadSettings or self:getDefaultSettings());
+                    local loaded=modules.modelAssembler:buildAsset(data,parent,loadSettings or self:getDefaultSettings());
                     initCenter(loaded);
-                    self.modules.modelDefuser:defuseModel(loaded);
+                    modules.modelDefuser:defuseModel(loaded);
                     if loaded~=nil then
-                        self:logMsg({
+                        logMsg({
                             MessageType="info",
                             MessageText="Loaded asset "..assetid_string.." successfully!"
                         });
                         return loaded;
                     else
-                        self:logMsg({
+                        logMsg({
                             MessageType="error",
                             MessageText="Failed to load asset "..assetid_string..": Model was nil"
                         });
@@ -245,16 +245,16 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
             end;
         end;
         local ErrorInfo=nil;
-        self:logMsg({
+        logMsg({
             MessageType="info",
             MessageText="Loading asset "..assetid_string
         });
-        if self.Configuration.Caching then
+        if Configuration.Caching then
             local cache=theCache:FindFirstChild(assetid_string);
             if cache then
                 modelContain=cache:Clone();
                 modelContain.Parent=parent;
-                self:logMsg({
+                logMsg({
                     MessageType="info",
                     MessageText="Loaded asset "..assetid_string.." from cache successfully!"
                 });
@@ -271,7 +271,7 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
         self:PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:getDefaultSettings());
         return modelContain,ErrorInfo;
     else
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="You must initialize the module before calling the LoadAsset method"
         });
@@ -287,7 +287,7 @@ function mod:LoadSolidModel(assetid:number)
         local assetid_string=tostring(assetid);
         local full_url=self.SolidModeling.urlToFetch.."/"..assetid_string.."?placeId="..game.PlaceId.."&type=SolidModel";
         local suc,res=pcall(function()
-            local response=self.Services.HttpService:RequestAsync({
+            local response=Services.HttpService:RequestAsync({
                 Url=full_url,
                 Method="GET",
                 Headers={
@@ -296,19 +296,19 @@ function mod:LoadSolidModel(assetid:number)
             });
             if response.Success then
                 local ok, parsed = pcall(function()
-                    return self.modules.json.decode(response.Body);
+                    return modules.json.decode(response.Body);
                 end);
                 if ok then
                     return parsed;
                 else
-                    self:logMsg({
+                    logMsg({
                         MessageType="error",
                         MessageText="Failed to parse JSON for asset " .. assetid_string .. ": " .. tostring(parsed)
                     });
                     return nil;
                 end;
             else
-                self:logMsg({
+                logMsg({
                     MessageType="error",
                     MessageText="Failed to load asset "..assetid_string.." due to request error: "..response.StatusMessage.." ("..tostring(response.StatusCode)..")"
                 });
@@ -340,7 +340,7 @@ function mod:LoadSolidModel(assetid:number)
             return nil;
         end;
     else
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="You must initialize the solid model part of module before calling the loadSolidModel method"
         });
@@ -351,21 +351,21 @@ end;
 Gets default settings for loading assets 
 ]]
 function mod:GetDefaultSettings()
-    return self.Configuration.DefaultSettings;
+    return Configuration.DefaultSettings;
 end;
 --[[ 
 Initializes model for compiling 
 ]]
 function mod:PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
     if not self.isInitialized then
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="You must initialize the module before calling the PrepareAsset method"
         });
         return nil;
     end;
     if typeof(model)~="Instance" or not model:IsA("Model") then
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="The model parameter must be a valid Model instance"
         });
@@ -401,21 +401,21 @@ function mod:PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSet
             end;
         end;
     end;
-    model.Parent=parent or self.Configuration.DefaultParent or workspace;
+    model.Parent=parent or Configuration.DefaultParent or workspace;
 end;
 --[[ 
 Fixes model for completion of inserted object, insert tool also calls this for security 
 ]]
 function mod:CompileAsset(model:Model,parent:Instance?)
     if not self.isInitialized then
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="You must initialize the module before calling the compile_asset method"
         });
         return nil;
     end;
     if typeof(model)~="Instance" or not model:IsA("Model") then
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="The model parameter must be a valid Model instance"
         });
@@ -433,7 +433,7 @@ function mod:CompileAsset(model:Model,parent:Instance?)
     end;
     local root_instances=model:GetChildren();
     for i,v in pairs(root_instances) do
-        v.Parent=parent or self.Configuration.DefaultParent or workspace;
+        v.Parent=parent or Configuration.DefaultParent or workspace;
     end;
     model:Destroy();
     return unpack(root_instances);
@@ -442,16 +442,16 @@ end;
 Loads code based on a type, code, and the player
 ]]
 function mod:LoadCode(code:string,typ:string,plr:Player,parent:Instance,enabled:boolean)
-    local sandboxType=self.Configuration.Sandboxed and "Sandbox" or "Normal";
+    local sandboxType=Configuration.Sandboxed and "Sandbox" or "Normal";
     if typ=="server" then
-        local s = self.modules.modelAssembler.Templates:FindFirstChild(sandboxType.."Script"):Clone();
+        local s = modules.modelAssembler.Templates:FindFirstChild(sandboxType.."Script"):Clone();
         s:SetAttribute("Source",tostring(code))
         s.Player.Value = plr;
         s.Parent = parent;
         s.Enabled = enabled;
         return s;
     elseif typ=="client" then
-        local s = self.modules.modelAssembler.Templates:FindFirstChild(sandboxType.."LocalScript"):Clone();
+        local s = modules.modelAssembler.Templates:FindFirstChild(sandboxType.."LocalScript"):Clone();
         s:SetAttribute("Source",tostring(code));
         s.Parent = parent or plr.PlayerGui;
         s.Enabled = enabled;
@@ -464,14 +464,14 @@ Restarts the server (requires *YOUR* API key)
 ]]
 function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
     if not self.isInitialized then
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="You must initialize the module before calling the RestartServer method"
         });
         return nil;
     end;
     if not url or type(url)~="string" or not apikey or type(apikey)~="string" then
-        self:logMsg({
+        logMsg({
             MessageType="error",
             MessageText="The url and apikey parameters must be valid strings and must not be nil"
         });
@@ -479,14 +479,14 @@ function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
     end;
     local full_url=url.."/restart";
     local suc,res=pcall(function()
-        local response=self.Services.HttpService:RequestAsync({
+        local response=Services.HttpService:RequestAsync({
             Url=full_url,
             Method="POST",
             Headers={
                 ["Content-Type"]="application/json",
                 ["x-api-key"]=apikey,
             },
-            Body=self.modules.json.encode({
+            Body=modules.json.encode({
                 placeId=game.PlaceId,
                 jobId=game.JobId,
                 reason=reason or "No reason provided",
@@ -495,7 +495,7 @@ function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
         if response.Success then
             return true;
         else
-            self:logMsg({
+            logMsg({
                 MessageType="error",
                 MessageText="Failed to restart server due to request error: "..response.StatusMessage.." ("..tostring(response.StatusCode)..")"
             });
@@ -503,7 +503,7 @@ function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
         end;
     end);
     if not suc then
-        self:logMsg({
+        logMsg({
             MessageType="error",MessageText="Failed to restart server: "..tostring(res)
         });
         return false;
@@ -515,7 +515,7 @@ Deprecated varient of InsertCloud:LoadAssetAsync()
 ]]
 @deprecated
 function mod:LoadAsset(url:string,assetid:number,loadSettings,parent:Instance?,position:Vector3,ver:number):Model
-    --self:logMsg("warn","The LoadAsset method is deprecated, please use LoadAssetAsync instead");
+    --logMsg("warn","The LoadAsset method is deprecated, please use LoadAssetAsync instead");
     return self:LoadAssetAsync(url,assetid,loadSettings,parent,position,ver);
 end;
 --[[ 
