@@ -88,7 +88,7 @@ export type LoggerMessage={
     MessageText: string,
     Arguments: any,
 }
-function mod:logMsg(msg:LoggerMessage,...)
+function logMsg(msg:LoggerMessage,...)
     local prefix="Insert Cloud:";
     if typeof(msg)=="string" then
         msg={
