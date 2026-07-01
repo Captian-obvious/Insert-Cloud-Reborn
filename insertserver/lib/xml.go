@@ -277,6 +277,10 @@ func DecodePropXML(prop *XMLProperty, inst *Instance, ctx *RbxmxContext) error {
 		decodeVector3(&outputProp, prop)
 	case "Font":
 		decodeFont(&outputProp, prop)
+	case "UDim":
+		decodeUDim(&outputProp, prop)
+	case "UDim2":
+		decodeUDim2(&outputProp, prop)
 	case "NumberSequence":
 		decodeNumberSeq(&outputProp, prop)
 	case "ColorSequence":
@@ -416,13 +420,13 @@ func decodeVector2(ret *Property, prop *XMLProperty) (*Property, error) {
 	if X == nil || Y == nil {
 		return nil, fmt.Errorf("invalid Vector2: missing X/Y")
 	}
-	xval, err := strconv.ParseFloat(strings.TrimSpace(X.Value), 64)
-	yval, err := strconv.ParseFloat(strings.TrimSpace(Y.Value), 64)
+	xval, err := strconv.ParseFloat(strings.TrimSpace(X.Value), 32)
+	yval, err := strconv.ParseFloat(strings.TrimSpace(Y.Value), 32)
 	if err != nil {
 		return ret, err
 	}
 	ret.Type = "vector2"
-	ret.Value = []float64{PurifyFloatValue(xval), PurifyFloatValue(yval)}
+	ret.Value = []float32{PurifyFloat32Value(float32(xval)), PurifyFloat32Value(float32(yval))}
 	return ret, nil
 }
 func decodeVector3(ret *Property, prop *XMLProperty) (*Property, error) {
@@ -430,9 +434,9 @@ func decodeVector3(ret *Property, prop *XMLProperty) (*Property, error) {
 	if X == nil || Y == nil {
 		return nil, fmt.Errorf("invalid Vector3: missing X/Y/Z")
 	}
-	xval, err := strconv.ParseFloat(strings.TrimSpace(X.Value), 64)
-	yval, err := strconv.ParseFloat(strings.TrimSpace(Y.Value), 64)
-	zval, err := strconv.ParseFloat(strings.TrimSpace(Z.Value), 64)
+	xval, err := strconv.ParseFloat(strings.TrimSpace(X.Value), 32)
+	yval, err := strconv.ParseFloat(strings.TrimSpace(Y.Value), 32)
+	zval, err := strconv.ParseFloat(strings.TrimSpace(Z.Value), 32)
 	if err != nil {
 		return ret, err
 	}
@@ -458,8 +462,8 @@ func decodeUDim(ret *Property, prop *XMLProperty) (*Property, error) {
 	return ret, nil
 }
 func decodeUDim2(ret *Property, prop *XMLProperty) (*Property, error) {
-	SX, OX := find(prop, "SX"), find(prop, "OX")
-	SY, OY := find(prop, "SY"), find(prop, "OY")
+	SX, OX := find(prop, "XS"), find(prop, "XO")
+	SY, OY := find(prop, "YS"), find(prop, "YO")
 	if SX == nil || OX == nil || SY == nil || OY == nil {
 		return nil, fmt.Errorf("invalid UDim2: missing SX/OX/SY/OY")
 	}
@@ -500,8 +504,10 @@ func decodeFont(ret *Property, prop *XMLProperty) (*Property, error) {
 	if err != nil {
 		return nil, err
 	}
+	var prp Property
+	decodeContent(&prp, family)
 	ret.Value = Font{
-		FontFamily: family.Value,
+		FontFamily: prp.Value.(string),
 		FontWeight: int(weightInt),
 		FontStyle:  styleInt,
 	}
