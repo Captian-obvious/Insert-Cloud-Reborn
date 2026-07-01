@@ -1,19 +1,4 @@
-local mod={
-    isInitialized=false,
-    _VERSION="5.3.0",
-    _DEVELOPERS={
-        ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
-        ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
-        ["vxnquish (@TNA_Cup)"]="Collaborator (helped with a few things on the server side)", -- Collaborator
-        ["god (@servertechnology)"]="the idea man" -- idea man
-    },
-    SolidModeling={
-        isInitialized=false,
-        urlToFetch=nil,
-    },
-    debug_mode=false,
-};
-Configuration={
+local Configuration={
     Caching=true,
     Sandboxed=true,
     DisableScripts=true,
@@ -33,14 +18,15 @@ Configuration={
     },
     DefaultParent=workspace,
     DefaultBuildParent=workspace,
+    DebugMode=false,
 };
-modules={
+local modules={
     modelAssembler=require(script.Dependancies.ModelAssembler),
     json=require(script.Dependancies.JSON),
     unionBuilder=require(script.Dependancies.UnionOperation),
     modelDefuser=require(script.Dependancies.ModelDefuser),
 };
-Services={
+local Services={
     HttpService=game:GetService("HttpService"),
     ReplicatedStorage=game:GetService("ReplicatedStorage"),
     InsertService=game:GetService("InsertService"),
@@ -109,10 +95,24 @@ function logMsg(msg:LoggerMessage,...)
 end;
 --[[ PrintDebug ]]
 function print_if_debug(...)
-    if mod.debug_mode then
+    if Configuration.DebugMode then
         print(...);
     end;
 end;
+local mod={
+    isInitialized=false,
+    _VERSION="5.3.0",
+    _DEVELOPERS={
+        ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
+        ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
+        ["vxnquish (@TNA_Cup)"]="Collaborator (helped with a few things on the server side)", -- Collaborator
+        ["god (@servertechnology)"]="the idea man" -- idea man
+    },
+    SolidModeling={
+        isInitialized=false,
+        urlToFetch=nil,
+    },
+};
 --[[ Initializes the module ]]
 function mod:initialize()
     if self.isInitialized then return end;
