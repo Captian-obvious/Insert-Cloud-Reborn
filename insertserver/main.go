@@ -87,8 +87,9 @@ type LogJson struct {
 }
 
 type ApiErrorDetailsStruct struct {
-	Code  int    `json:"code"`
-	Error string `json:"message"`
+	Code            int    `json:"code"`
+	Error           string `json:"message"`
+	CustomErrorCode int    `json:"CustomErrorCode,omitempty"`
 }
 
 type RobloxApiError struct {
@@ -118,11 +119,12 @@ type AssetMetadata struct {
 }
 
 type AssetLocationData struct {
-	Location     string `json:"location"`
-	RequestID    string `json:"requestId"`
-	IsArchived   bool   `json:"isArchived"`
-	AssetTypeID  int    `json:"assetTypeId"`
-	IsRecordable bool   `json:"isRecordable"`
+	Location     string                  `json:"location"`
+	RequestID    string                  `json:"requestId"`
+	IsArchived   bool                    `json:"isArchived"`
+	AssetTypeID  int                     `json:"assetTypeId"`
+	IsRecordable bool                    `json:"isRecordable"`
+	Errors       []ApiErrorDetailsStruct `json:"errors,omitempty"`
 }
 
 type OutputRBXM struct {
@@ -548,6 +550,7 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		})
+		log.Println("An error occured while parsing data: " + err.Error())
 		return
 	}
 	jsonData := OutputRBXM{
@@ -570,6 +573,7 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		})
+		log.Println("An error occured while JSONifying data: " + err.Error())
 		return
 	}
 }
@@ -775,12 +779,28 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 			})
 			break
 		}
+		if len(data.Errors) > 0 {
+			errCode := data.Errors[0].Code
+			w.WriteHeader(errCode)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Could not fetch asset because api returned errors",
+				ResponseCode: errCode,
+				Details:      data.Errors,
+			})
+			break
+		}
 		res2, err := http.Get(data.Location)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(ApiError{
 				Error:        "An error occured while fetching asset",
 				ResponseCode: 500,
+				Details: []ApiErrorDetailsStruct{
+					{
+						Code:  500,
+						Error: err.Error(),
+					},
+				},
 			})
 			break
 		}
@@ -807,13 +827,13 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 			Details:      details.Errors,
 		})
 	/*case 429:
-		retryAfter := res.Header.Get("Retry-After")
-		if retryAfter != "" {
-			secs, _ := strconv.Atoi(retryAfter)
-			cooldownUntil := time.Now().Add(time.Duration(secs) * time.Second)
+	retryAfter := res.Header.Get("Retry-After")
+	if retryAfter != "" {
+		secs, _ := strconv.Atoi(retryAfter)
+		cooldownUntil := time.Now().Add(time.Duration(secs) * time.Second)
 
-			assetCooldown.Store(FINAL_URL, cooldownUntil)
-		}*/
+		assetCooldown.Store(FINAL_URL, cooldownUntil)
+	}*/
 	default:
 		w.WriteHeader(res.StatusCode)
 		var details RobloxApiError
@@ -880,7 +900,6 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 				},
 			},
 		})
-		log.Print("An error occured while parsing data: "+err.Error())
 		return
 	}
 	fmt.Fprint(w, string(jDat))
