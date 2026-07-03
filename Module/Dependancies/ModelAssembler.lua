@@ -9,10 +9,10 @@ local modules={
     unionBuilder=require(script.Parent.UnionOperation), -- Creates UnionOperations from their data
 };
 local sandbox_type="Normal";
+local Templates=script.TEMPLATE_OBJECTS;
 local mod={
     isInitialized=false,
     Configuration={},
-    Templates=script.TEMPLATE_OBJECTS,
     debug_mode=false, --prints additional stuff to console
 };
 function resolveEnumInteger(enum:Enum, int:number)
@@ -356,23 +356,23 @@ end;
 
 local class_initializers={
     ["Script"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=mod.Templates:FindFirstChild(sandbox_type..class_name):Clone();
+        local object=Templates:FindFirstChild(sandbox_type..class_name):Clone();
         object.Parent=parent;
         object.Enabled=false;
         return object;
     end,
     ["LocalScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=mod.Templates:FindFirstChild(sandbox_type..class_name):Clone();
+        local object=Templates:FindFirstChild(sandbox_type..class_name):Clone();
         if loadSettings.EnableLegacyClientScripts then
             object:Destroy();
-            object=mod.Templates:FindFirstChild(sandbox_type..class_name.."Legacy"):Clone();
+            object=Templates:FindFirstChild(sandbox_type..class_name.."Legacy"):Clone();
         end;
         object.Parent=parent;
         object.Enabled=false;
         return object;
     end,
     ["ModuleScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=mod.Templates:FindFirstChild(sandbox_type..class_name):Clone();
+        local object=Templates:FindFirstChild(sandbox_type..class_name):Clone();
         object.Parent=parent;
         return object;
     end,
