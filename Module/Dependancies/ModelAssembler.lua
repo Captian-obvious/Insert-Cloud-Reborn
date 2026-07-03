@@ -636,4 +636,12 @@ function mod:buildAsset(data,root_parent,loadSettings)
         return nil;
     end;
 end;
+--[[ Creates a Script or LocalScript --]]
+function mod:NewScript(isLocal)
+    local object=Templates:FindFirstChild(sandbox_type.."Script"):Clone();
+    if isLocal then
+        object=Templates:FindFirstChild(sandbox_type.."LocalScript"):Clone();
+    end
+    return object;
+end;
 return mod;

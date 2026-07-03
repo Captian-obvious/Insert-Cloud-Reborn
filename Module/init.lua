@@ -446,20 +446,14 @@ Loads code based on a type, code, and the player
 ]]
 function mod:LoadCode(code:string,typ:string,plr:Player,parent:Instance,enabled:boolean)
     local sandboxType=Configuration.Sandboxed and "Sandbox" or "Normal";
-    if typ=="server" then
-        local s = modules.modelAssembler.Templates:FindFirstChild(sandboxType.."Script"):Clone();
-        s:SetAttribute("Source",tostring(code))
-        s.Player.Value = plr;
-        s.Parent = parent;
-        s.Enabled = enabled;
-        return s;
-    elseif typ=="client" then
-        local s = modules.modelAssembler.Templates:FindFirstChild(sandboxType.."LocalScript"):Clone();
-        s:SetAttribute("Source",tostring(code));
-        s.Parent = parent or plr.PlayerGui;
-        s.Enabled = enabled;
-        return s;
+    local s = modules.modelAssembler:NewScript((typ~="server") and true or false)
+    s:SetAttribute("Source",tostring(code))
+    if s:FindFirstChild("Player") then
+        s.Player.Value=plr;
     end;
+    s.Enabled = enabled;
+    s.Parent = parent;
+    return s;
 end;
 
 --[[ 
@@ -573,3 +567,4 @@ function mod:getVersion()
 end;
 
 return mod;
+
