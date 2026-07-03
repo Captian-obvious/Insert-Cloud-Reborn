@@ -105,12 +105,15 @@ function print_if_debug(...)
 end;
 local mod={
     isInitialized=false,
-    _VERSION="5.3.0",
+    _VERSION="5.6.2",
     _DEVELOPERS={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
         ["vxnquish (@TNA_Cup)"]="Collaborator (helped with a few things on the server side)", -- Collaborator
         ["god (@servertechnology)"]="the idea man" -- idea man
+    },
+    SolidModeling={
+        isInitialized=false, --backwards compatible, since the primary initialize for solidModeling already checks if its initialized and does nothing if it is
     }
 };
 --[[ Initializes the module ]]
@@ -140,7 +143,7 @@ function mod:initializeSolidModeling(fetchUrl:string, parseUrl:string)
     if parseUrl and typeof(parseUrl)~="string" then return end;
     SolidModeling.isInitialized=true;
     SolidModeling.urlToFetch=fetchUrl;
-    modules.unionBuilder.parseUrl=parseUrl;
+    modules.unionBuilder:initialize(parseUrl)
 end;
 --[[
 Loads model by ID <code>assetid</code> from <code>url</code> and returns a container model for it

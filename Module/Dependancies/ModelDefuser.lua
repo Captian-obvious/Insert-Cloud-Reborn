@@ -1,35 +1,35 @@
+local Services = {
+    ReplicatedStorage = game:GetService("ReplicatedStorage"),
+    Players = game:GetService("Players"),
+    Debris = game:GetService("Debris"),
+};
+local knownMaliciousScripts={
+    "Script, or is it???", -- infamous obfuscator signature
+    "ROFL", -- old script kiddie favorite
+    "iNfEcTiOn",-- another old favorite
+    "H4CK3D_BY_1337", -- yet another old favorite
+    "NukerScript", -- very common malicious script name
+    "Spread", -- often used in scripts that spread themselves
+    "Vaccine", --nice try, but we know what you mean
+    "Anti-Lag" --ironically, this is often used to cause lag
+};
+local possiblyMaliciousInstances={
+    "JointInstance",
+    "RotateP",
+    "BodyPosition",
+    "BodyGyro",
+    "BodyVelocity",
+    "Fire"
+};
 local mod={
-    Services = {
-        ReplicatedStorage = game:GetService("ReplicatedStorage"),
-        Players = game:GetService("Players"),
-        Debris = game:GetService("Debris"),
-    },
     modules={},
-    knownMaliciousScripts={
-        "Script, or is it???", -- infamous obfuscator signature
-        "ROFL", -- old script kiddie favorite
-        "iNfEcTiOn",-- another old favorite
-        "H4CK3D_BY_1337", -- yet another old favorite
-        "NukerScript", -- very common malicious script name
-        "Spread", -- often used in scripts that spread themselves
-        "Vaccine", --nice try, but we know what you mean
-        "Anti-Lag" --ironically, this is often used to cause lag
-    },
-    possiblyMaliciousInstances={
-        "JointInstance",
-        "RotateP",
-        "BodyPosition",
-        "BodyGyro",
-        "BodyVelocity",
-        "Fire"
-    },
 };
 
 function defuseScript(s)
-    for _,maliciousName in pairs(mod.knownMaliciousScripts) do
+    for _,maliciousName in pairs(knownMaliciousScripts) do
         if string.find(s.Name:lower(),maliciousName:lower()) then
             s.Parent=nil;
-            mod.Services.Debris:AddItem(s,0);
+            Services.Debris:AddItem(s,0);
             return true;
         end;
     end;
@@ -38,12 +38,12 @@ end;
 
 function defuseInstance(inst)
     local malicious=false;
-    for _,className in pairs(mod.possiblyMaliciousInstances) do
+    for _,className in pairs(possiblyMaliciousInstances) do
         if inst:IsA(className) then
             local tocheck=inst:FindFirstChildWhichIsA("BaseScript");
             if (tocheck) then
                 tocheck.Parent=nil;
-                mod.Services.Debris:AddItem(tocheck,0);
+                Services.Debris:AddItem(tocheck,0);
                 malicious=true;
             end;
         end;

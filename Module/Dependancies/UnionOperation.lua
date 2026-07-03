@@ -1,24 +1,27 @@
+local Services={
+    ReplicatedStorage=game:GetService("ReplicatedStorage"),
+    InsertService=game:GetService("InsertService"),
+    HttpService=game:GetService("HttpService"),
+    GeometryService=game:GetService("GeometryService"),
+};
 local mod={
-    Services={
-        ReplicatedStorage=game:GetService("ReplicatedStorage"),
-        InsertService=game:GetService("InsertService"),
-        HttpService=game:GetService("HttpService"),
-        GeometryService=game:GetService("GeometryService"),
-    },
     modules={
         b64=require(script.Parent.Base64), --b64
         json=require(script.Parent.JSON), --json
         modelAssembler=nil, --populated at runtime
         icloud=nil, --populated at runtime
     },
-    parseUrl=nil,
     debug_mode=false, --prints additional stuff to console
 };
+local parseUrl=nil;
 
 function print_if_debug(...)
     if mod.debug_mode then
         print(...);
     end;
+end;
+function mod:initialize(url)
+    parseUrl=url;
 end;
 function mod:applyAssetId(assetId:string,isIntersection,isExperimental)
     local loadable=nil;
@@ -54,8 +57,8 @@ end;
 function mod:applyAssetData(assetData:string,isIntersection,isExperimental)
     print("asset data called");
     local suc,res=pcall(function()
-        local response=self.Services.HttpService:RequestAsync({
-            Url=self.parseUrl,
+        local response=Services.HttpService:RequestAsync({
+            Url=parseUrl,
             Method="POST",
             Headers={
                 ["Accept"]="application/json",
@@ -111,7 +114,7 @@ function centerUnionPivot(union,parent)
     if union:IsA("UnionOperation") then
         new=centeredPart:UnionAsync({union},options.CollisionFidelity,options.RenderFidelity);
     elseif union:IsA("PartOperation") then
-        new=mod.Services.GeometryService:UnionAsync(centeredPart,{union},options)[1];
+        new=Services.GeometryService:UnionAsync(centeredPart,{union},options)[1];
     end;
     union:SubstituteGeometry(new);
     new:Destroy();
@@ -120,8 +123,8 @@ end;
 
 function mod:applyChildData(childData,isIntersection)
     local suc,res=pcall(function()
-        local response=self.Services.HttpService:RequestAsync({
-            Url=self.parseUrl,
+        local response=Services.HttpService:RequestAsync({
+            Url=parseUrl,
             Method="POST",
             Headers={
                 ["Accept"]="application/json",
@@ -138,7 +141,7 @@ function mod:applyChildData(childData,isIntersection)
         warn("Failed to get data: "..res);
     else
         print_if_debug(res);
-        local replicated=self.Services.ReplicatedStorage;
+        local replicated=Services.ReplicatedStorage;
         local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder",replicated);
         loadFolder.Name="UnionOperationLoadCache";
         local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
@@ -237,8 +240,8 @@ end;
 
 function mod:applyChildDataNew(childData,isIntersection)
     local suc,res=pcall(function()
-        local response=self.Services.HttpService:RequestAsync({
-            Url=self.parseUrl,
+        local response=Services.HttpService:RequestAsync({
+            Url=parseUrl,
             Method="POST",
             Headers={
                 ["Accept"]="application/json",
@@ -255,7 +258,7 @@ function mod:applyChildDataNew(childData,isIntersection)
         warn("Failed to get data: "..res);
     else
         print_if_debug(res);
-        local replicated=self.Services.ReplicatedStorage;
+        local replicated=Services.ReplicatedStorage;
         local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder",replicated);
         loadFolder.Name="UnionOperationLoadCache";
         local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
@@ -305,9 +308,9 @@ function mod:applyChildDataNew(childData,isIntersection)
             local old=partToAttachTo;
             local suc,Union=pcall(function()
                 if isIntersection then
-                    partToAttachTo=self.Services.GeometryService:IntersectAsync(partToAttachTo,parts,options)[1];
+                    partToAttachTo=Services.GeometryService:IntersectAsync(partToAttachTo,parts,options)[1];
                     partToAttachTo.Parent=loadFolder;
-                    partToAttachTo=self.Services.GeometryService:IntersectAsync(old,{partToAttachTo},options)[1]; -- this is odd but fixes the problems
+                    partToAttachTo=Services.GeometryService:IntersectAsync(old,{partToAttachTo},options)[1]; -- this is odd but fixes the problems
                     partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     centerUnionPivot(partToAttachTo,partToAttachTo.Parent);
@@ -315,14 +318,14 @@ function mod:applyChildDataNew(childData,isIntersection)
                     return partToAttachTo;
                 end;
                 print_if_debug(parts);
-                partToAttachTo=self.Services.GeometryService:UnionAsync(partToAttachTo,parts,options)[1];
+                partToAttachTo=Services.GeometryService:UnionAsync(partToAttachTo,parts,options)[1];
                 partToAttachTo.Parent=model;
                 partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                 old:Destroy();
                 old=partToAttachTo;
                 print_if_debug(negativeParts);
                 if #negativeParts~=0 then
-                    partToAttachTo=self.Services.GeometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
+                    partToAttachTo=Services.GeometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
                     partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();

@@ -1,18 +1,18 @@
+local Services={
+    ReplicatedStorage=game:GetService("ReplicatedStorage"),
+    InsertService=game:GetService("InsertService"),
+    AssetService=game:GetService("AssetService"),
+};
+local modules={
+    sstrParse=require(script.Parent.SSTRParse), --SSTR is not stored as a default string, it needs some additional processing
+    b64=require(script.Parent.Base64), --b64
+    unionBuilder=require(script.Parent.UnionOperation), -- Creates UnionOperations from their data
+};
+local sandbox_type="Normal";
 local mod={
     isInitialized=false,
-    Services={
-        ReplicatedStorage=game:GetService("ReplicatedStorage"),
-        InsertService=game:GetService("InsertService"),
-        AssetService=game:GetService("AssetService"),
-    },
-    modules={
-        sstrParse=require(script.Parent.SSTRParse), --SSTR is not stored as a default string, it needs some additional processing
-        b64=require(script.Parent.Base64), --b64
-        unionBuilder=require(script.Parent.UnionOperation), -- Creates UnionOperations from their data
-    },
     Configuration={},
     Templates=script.TEMPLATE_OBJECTS,
-    sandbox_type="Normal",
     debug_mode=false, --prints additional stuff to console
 };
 function resolveEnumInteger(enum:Enum, int:number)
@@ -39,7 +39,7 @@ local propertyTypes={
         if encoded==nil then encoded=false end;
         if typed=="string" then
             if encoded then
-                return mod.modules.b64.decode(value);
+                return modules.b64.decode(value);
             else
                 return value;
             end;
@@ -60,7 +60,7 @@ local propertyTypes={
     end,
     ["sharedstr"]=function(typed,value,refs)
         if typed=="sharedstr" then
-            return mod.modules.sstrParse:ParseSharedStr(value);
+            return modules.sstrParse:ParseSharedStr(value);
         else
             return "";
         end;
@@ -257,7 +257,7 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
     part.Parent=parent;
     local function readChildData(data)
         return pcall(function()
-            return (experimental) and mod.modules.unionBuilder:applyChildDataNew(data,isIntersection) or mod.modules.unionBuilder:applyChildData(data,isIntersection);
+            return (experimental) and modules.unionBuilder:applyChildDataNew(data,isIntersection) or modules.unionBuilder:applyChildData(data,isIntersection);
         end);
     end;
     local function FinalizePart(part,model)
@@ -276,7 +276,7 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
     local suc,model;
     if assetId then
         suc,model=pcall(function()
-            return mod.modules.unionBuilder:applyAssetId(assetId,isIntersection,experimental);
+            return modules.unionBuilder:applyAssetId(assetId,isIntersection,experimental);
         end);
     elseif childData then
         suc,model=readChildData(childData)
@@ -284,7 +284,7 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
         suc,model=readChildData(childData2);
     elseif assetData then
         suc,model=pcall(function()
-            return mod.modules.unionBuilder:applyAssetData(assetData,isIntersection,experimental);
+            return modules.unionBuilder:applyAssetData(assetData,isIntersection,experimental);
         end);
     end;
     if suc and model~=nil then
@@ -294,6 +294,29 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
         part:SetAttribute("IsNegateOperation",true);
     end;
     return part;
+end;
+function createSurfaceAppearanceAsync(prop) --the workaround, only color works though so....
+    local uri=Content.fromUri
+    local obj=Content.fromObject
+    local propmaps={
+        c=uri(prop.ColorMap.value),
+        m=uri(prop.MetalnessMap.value),
+        n=uri(prop.NormalMap.value),
+        r=uri(prop.RoughnessMap.value),
+    };
+    local suc,surf=pcall(function()
+        local sa= mod.Services.AssetService:CreateSurfaceAppearanceAsync({
+            ColorMap=propmaps.c,
+            MetalnessMap=propmaps.m,
+            NormalMap=propmaps.n,
+            RoughnessMap=propmaps.r,
+        });
+        return sa;
+    end);
+    if not suc then
+        warn("Failed to create SurfaceAppearance on MeshPart due to an error: "..tostring(surf));
+    end;
+    return (suc) and surf or Instance.new("SurfaceAppearance");
 end;
 function createMeshPartAsync(meshId,textureId,options)
     local obj=Instance.new("Part");
@@ -333,23 +356,23 @@ end;
 
 local class_initializers={
     ["Script"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=mod.Templates:FindFirstChild(mod.sandbox_type..class_name):Clone();
+        local object=mod.Templates:FindFirstChild(sandbox_type..class_name):Clone();
         object.Parent=parent;
         object.Enabled=false;
         return object;
     end,
     ["LocalScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=mod.Templates:FindFirstChild(mod.sandbox_type..class_name):Clone();
+        local object=mod.Templates:FindFirstChild(sandbox_type..class_name):Clone();
         if loadSettings.EnableLegacyClientScripts then
             object:Destroy();
-            object=mod.Templates:FindFirstChild(mod.sandbox_type..class_name.."Legacy"):Clone();
+            object=mod.Templates:FindFirstChild(sandbox_type..class_name.."Legacy"):Clone();
         end;
         object.Parent=parent;
         object.Enabled=false;
         return object;
     end,
     ["ModuleScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=mod.Templates:FindFirstChild(mod.sandbox_type..class_name):Clone();
+        local object=mod.Templates:FindFirstChild(sandbox_type..class_name):Clone();
         object.Parent=parent;
         return object;
     end,
@@ -378,6 +401,11 @@ local class_initializers={
             mesh:SetAttribute("initialSize",InitialSize);
         end;
         return meshPart;
+    end,
+    ['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
+        local obj=createSurfaceAppearanceAsync(prop)
+        obj.Parent=parent;
+        return obj;
     end,
     ["IntersectOperation"]=InstantiateSolidModel,
     ['NegateOperation']=InstantiateSolidModel,
@@ -466,10 +494,10 @@ function mod:initialize(config,main)
     if self.isInitialized then return end;
     self.isInitialized=true;
     self.Configuration=config;
-    self.modules.unionBuilder.modules.modelAssembler=mod;
-    self.modules.unionBuilder.modules.icloud=main;
+    modules.unionBuilder.modules.modelAssembler=mod;
+    modules.unionBuilder.modules.icloud=main;
     if self.Configuration.Sandboxed==true then
-        self.sandbox_type="Sandbox";
+        sandbox_type="Sandbox";
     end;
 end;
 --[[ Build model tree --]]
