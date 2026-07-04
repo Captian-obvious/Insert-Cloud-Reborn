@@ -155,7 +155,7 @@ if its an `IntersectOperation` or not, you can reliably determine if you need to
 the pipeline to accomodate these differences. Although it will take some trial and error,<br/>
 you now can reliably create `UnionOperation`s from their RBXM/RBXMX data.
 
-*note: the below code is a snippet from my implementation of this, available in [UnionOperation.lua](https://github.com/Captian-obvious/Insert-Cloud-Reborn/blob/master/Module/Dependancies/UnionOperation.lua)*
+*note: the below code is a snippet from my implementation of this, which you can find at [UnionOperation.lua](https://github.com/Captian-obvious/Insert-Cloud-Reborn/blob/master/Module/Dependancies/UnionOperation.lua) on the repo*
 
 ```lua
 function mod:applyChildData(childData,isIntersection)
