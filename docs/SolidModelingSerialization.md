@@ -78,7 +78,6 @@ the center of its bounding box *as shown below*.<br/>
 
 ```lua
 function centerUnionPivot(union,parent)
-    local new;
     local tempModel = Instance.new("Model");
     union.Parent = tempModel;
     tempModel.PrimaryPart = union;
@@ -89,10 +88,11 @@ function centerUnionPivot(union,parent)
     centeredPart.Anchored=union.Anchored;
     centeredPart.Transparency=1;
     centeredPart.CanCollide=false;
+    local new;
     if union:IsA("UnionOperation") then
         new=centeredPart:UnionAsync({union},options.CollisionFidelity,options.RenderFidelity);
     elseif union:IsA("PartOperation") then
-        new=mod.Services.GeometryService:UnionAsync(centeredPart,{union},options)[1];
+        new=Services.GeometryService:UnionAsync(centeredPart,{union},options)[1];
     end;
     union:SubstituteGeometry(new);
     new:Destroy();
