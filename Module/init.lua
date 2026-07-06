@@ -105,7 +105,7 @@ function print_if_debug(...)
 end;
 local mod={
     isInitialized=false,
-    _VERSION="5.6.2",
+    _VERSION="5.7.2",
     _DEVELOPERS={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
@@ -445,7 +445,7 @@ end;
 Loads code based on a type, code, and the player
 ]]
 function mod:LoadCode(code:string,typ:string,plr:Player,parent:Instance,enabled:boolean)
-    local sandboxType=Configuration.Sandboxed and "Sandbox" or "Normal";
+    local sandboxType=(Configuration.Sandboxed) and "Sandbox" or "Normal";
     local s = modules.modelAssembler:NewScript((typ~="server") and true or false)
     s:SetAttribute("Source",tostring(code))
     if s:FindFirstChild("Player") then
@@ -567,4 +567,3 @@ function mod:getVersion()
 end;
 
 return mod;
-
