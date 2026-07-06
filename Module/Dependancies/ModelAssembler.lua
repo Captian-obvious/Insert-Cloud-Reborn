@@ -305,7 +305,7 @@ function createSurfaceAppearanceAsync(prop) --the workaround, only color works t
         r=uri(prop.RoughnessMap.value),
     };
     local suc,surf=pcall(function()
-        local sa= mod.Services.AssetService:CreateSurfaceAppearanceAsync({
+        local sa= Services.AssetService:CreateSurfaceAppearanceAsync({
             ColorMap=propmaps.c,
             MetalnessMap=propmaps.m,
             NormalMap=propmaps.n,
@@ -335,7 +335,7 @@ function createMeshPartAsync(meshId,textureId,options)
             obj.TextureID=textureId;
         else
             local suc,new=pcall(function()
-                return mod.Services.AssetService:CreateMeshPartAsync(Content.fromUri(meshId),options)
+                return Services.AssetService:CreateMeshPartAsync(Content.fromUri(meshId),options)
             end);
             if not suc then
                 warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: "..tostring(new));
@@ -427,13 +427,23 @@ local class_initializers={
         return nil;
     end,
     ["PackageLink"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        return Instance.new("Folder",parent);
+        local obj=Instance.new("Folder");
+        obj.Parent=parent;
+        obj.Name="PackageLink";
+        --obj:SetAttribute("AssetId",prop.AssetId.value);
+        return obj;
     end,
     ["StockSound"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        return Instance.new("Sound",parent);
+        local obj=Instance.new("Folder");
+        obj.Parent=parent;
+        obj.Name="StockSound";
+        return obj;
     end,
     ["Geometry"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        return Instance.new("Folder",parent);
+        local obj=Instance.new("Folder");
+        obj.Parent=parent;
+        obj.Name="Geometry";
+        return obj;
     end,
     ["Message"]=function(class_name,parent,inst,prop,refs,loadSettings)
         return nil;
@@ -515,7 +525,7 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
                     local instance;
                     local classInit=class_initializers[classname];
                     if classInit then
-                        print_if_debug(loadSettings);
+                        --print_if_debug(loadSettings);
                         instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings);
                     else
                         instance=Instance.new(classname);
@@ -546,7 +556,7 @@ end;
 function mod.buildProps(instances,refs,loadSettings)
     for obj,inst in pairs(instances) do
         for propName,prop in pairs(inst.properties) do
-            local function callProp()
+            local suc,err=pcall(function()
                 propName=string.upper(string.sub(propName, 0, 1))..string.sub(propName,2); --case the property correctly
                 if (propName=="Color3uint8") then
                     propName="Color"; -- fixes the format changes to RBXM
@@ -562,7 +572,7 @@ function mod.buildProps(instances,refs,loadSettings)
                     if not mod.Configuration.DisableScripts then
                         obj.Enabled=not prop.value;
                     end;
-                elseif (propName=="Playing" or propName=="IsPlaying" and prop.value==true) then
+                elseif ((propName=="Playing" or propName=="IsPlaying") and prop.value==true) then
                     obj.Playing=false;
                     pcall(function() obj:Stop(); end);
                     obj:SetAttribute("IC_Playing",prop.value);
@@ -594,11 +604,10 @@ function mod.buildProps(instances,refs,loadSettings)
                 elseif (propName=="opacity_xml") then
                     propName="Opacity";
                 end;
-                if (obj and (obj[propName]~=nil or propExceptions[propName]) and propName~="Disabled" and propName~="Locked" and propName~="PivotOffset") then
+                if (obj and (obj[propName]~=nil or propExceptions[propName]) and propName~="Disabled" and propName~="Locked" and propName~="PivotOffset" and propName~="Playing" and propName~="IsPlaying") then
                     obj[propName]=compile_prop(propName,prop,refs,obj);
                 end;
-            end;
-            local suc,err=pcall(callProp);
+            end);
             if not suc and mod.debug_mode then
                 warn("Failed to apply property "..propName.." to instance: "..tostring(err));
             end;
@@ -625,7 +634,8 @@ end;
 function mod:buildAsset(data,root_parent,loadSettings)
     if self.isInitialized then
         root_parent=root_parent or workspace;
-        local rootModel=Instance.new("Model",root_parent);
+        local rootModel=Instance.new("Model");
+        rootModel.Parent=root_parent;
         rootModel.Name=data.AssetIdParsed or "UNNAMED_ASSET";
         local rbxm=data.modelData; -- this is json that is provided
         loadSettings=loadSettings or {};
