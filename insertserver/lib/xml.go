@@ -338,7 +338,7 @@ func DecodePropXML(prop *XMLProperty, inst *Instance, ctx *RbxmxContext) error {
 				Direction: pos2Value.([]float32),
 			},
 		}
-	case "PhysicialProperties":
+	case "PhysicalProperties":
 		decodePhysProps(&outputProp, prop)
 	case "NumberRange":
 		decodeNumberRange(&outputProp, prop)
