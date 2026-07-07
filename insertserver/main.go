@@ -179,7 +179,7 @@ func main() {
 ▄███▄ ██ ██ ▄▄▄█▀ ▀█▄▄▄ ██     ██     ▀███████ ██ ▀███▀ ▀██▀█ ▀████     ▀████▀   ███████▀ 
                                                                                           
                                                                                           
-                                ` + ansi.Red + `by Superduperdev2 Inc.                                 
+                                ` + ansi.Italic + ansi.Underline + ansi.Red + `by Superduperdev2 Inc.` + ansi.ResetUnderline + `                                 
 ` + ansi.Reset + "\n")
 	STARTED_AT = time.Now()
 	lastConfigReload = STARTED_AT.UnixNano()
