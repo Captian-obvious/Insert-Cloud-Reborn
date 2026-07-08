@@ -522,6 +522,28 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	content, _ := io.ReadAll(r.Body)
+	matched, err := regexp.Match("^([A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$", content)
+	if err != nil {
+		w.WriteHeader(500)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Base64 validation failed.",
+			ResponseCode: 500,
+			Details: []ApiErrorDetailsStruct{
+				{
+					Error: string(err.Error()),
+					Code:  -1,
+				},
+			},
+		})
+		return
+	} else if !matched {
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Input is not valid Base64.",
+			ResponseCode: 400,
+		})
+		return
+	}
 	assetDataRaw, err := base64.StdEncoding.DecodeString(string(content))
 	if err != nil {
 		w.WriteHeader(500)
