@@ -74,7 +74,7 @@ var lastBatchLog int64
 var CONFIG_FILE_PATH string = os.Getenv("CONFIG_FILE_PATH")
 var STARTED_AT time.Time
 var BLOCKED_ASSET_IDS map[float64]struct{}
-var assetCooldown sync.Map // map[assetId]time.Time
+var cdnCache sync.Map // map[assetId]cdnCacheEntry
 
 type LogJson struct {
 	AssetId   string `json:"AssetId"`
@@ -85,6 +85,11 @@ type LogJson struct {
 	Timestamp string `json:"Timestamp"`
 	Type      string `json:"Type"`
 	JobId     string `json:"JobId"`
+}
+
+type cdnCacheEntry struct {
+	Location  string
+	ExpiresAt time.Time
 }
 
 type ApiErrorDetailsStruct struct {
@@ -714,8 +719,14 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		return ""
 	}
 	defer res.Body.Close()
-	//fmt.Printf("%s %s (%d)\n", "Response Code: ", res.Status, res.StatusCode)
 	rets := ""
+	/*if entry, ok := cdnCache.Load(assetId); ok {
+		cdnEntry := entry.(cdnCacheEntry)
+		if time.Now().After(cdnEntry.ExpiresAt) {
+			cdnCache.CompareAndDelete(assetId, entry)
+		}
+	}
+	*/
 	switch res.StatusCode {
 	case 200:
 		var data AssetLocationData
@@ -737,8 +748,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			})
 			break
 		}
-		res2, err := http.Get(data.Location)
-		defer res2.Body.Close()
+		rets, err = fetchAssetFromLocation(data.Location)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(ApiError{
@@ -753,18 +763,10 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			})
 			break
 		}
-		if res2.StatusCode == 200 {
-			resdata, err := io.ReadAll(res2.Body)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(ApiError{
-					Error:        "An error occured while fetching asset",
-					ResponseCode: 500,
-				})
-			}
-			rets = string(resdata)
-			break
-		}
+		/*cdnCache.Store(assetId, cdnCacheEntry{
+			Location:  data.Location,
+			ExpiresAt: time.Now().Add(time.Minute * 1), // cache for 1 minute
+		})*/
 	case 403:
 		w.WriteHeader(http.StatusForbidden)
 		var details RobloxApiError
@@ -775,15 +777,40 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			ResponseCode: 403,
 			Details:      details.Errors,
 		})
-	/*case 429:
-	retryAfter := res.Header.Get("Retry-After")
-	if retryAfter != "" {
-		secs, _ := strconv.Atoi(retryAfter)
-		cooldownUntil := time.Now().Add(time.Duration(secs) * time.Second)
-
-		assetCooldown.Store(FINAL_URL, cooldownUntil)
-	}
-	*/
+	case 429:
+		if conf.ServerConfig.FileCachingEnabled {
+			rawPath := filepath.Join(cachePath, "raw")
+			verStr := "_" + version
+			if version == "" {
+				verStr = ""
+			}
+			thedata, err := os.ReadFile(filepath.Join(rawPath, assetId+verStr+".rbxm"))
+			if err != nil {
+				w.WriteHeader(http.StatusTooManyRequests)
+				json.NewEncoder(w).Encode(ApiError{
+					Error:        "Upstream server is rate limiting requests, and no cached file was found.",
+					ResponseCode: 429,
+				})
+			} else {
+				rets = string(thedata)
+			}
+			/*} else if cdnEntry, ok := cdnCache.Load(assetId); ok {
+			cdnEntryData := cdnEntry.(cdnCacheEntry)
+			rets, err = fetchAssetFromLocation(cdnEntryData.Location)
+			if err != nil {
+				w.WriteHeader(http.StatusTooManyRequests)
+				json.NewEncoder(w).Encode(ApiError{
+					Error:        "Upstream server is rate limiting requests, and cached CDN location failed to fetch.",
+					ResponseCode: 429,
+				})
+			}*/
+		} else {
+			w.WriteHeader(http.StatusTooManyRequests)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Upstream server is rate limiting requests, and file caching is disabled.",
+				ResponseCode: 429,
+			})
+		}
 	default:
 		w.WriteHeader(res.StatusCode)
 		var details RobloxApiError
@@ -795,6 +822,22 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		})
 	}
 	return rets
+}
+
+func fetchAssetFromLocation(location string) (string, error) {
+	res, err := http.Get(location)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode == 200 {
+		resdata, err := io.ReadAll(res.Body)
+		if err != nil {
+			return "", err
+		}
+		return string(resdata), nil
+	}
+	return "", fmt.Errorf("failed to fetch asset from location, status code: %d", res.StatusCode)
 }
 
 func ParseRBXM(w http.ResponseWriter, data string, assetId string, version string) {
