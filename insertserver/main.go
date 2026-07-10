@@ -25,7 +25,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const USER_AGENT_TEMPLATE string = "Superduperdev2InsertWebservice/3.0 (compatible; %s/%s)"
+const USER_AGENT_TEMPLATE string = "Superduperdev2InsertWebservice/3.0 (compatible; %s/%s %s)"
 const ASSET_DELIVERY_URL string = "https://apis.roblox.com/asset-delivery-api/v1/assetId/"
 
 /*
@@ -189,7 +189,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-	USER_AGENT = fmt.Sprintf(USER_AGENT_TEMPLATE, conf.HostInfo.ServerName, conf.HostInfo.AppVersion)
+	USER_AGENT = fmt.Sprintf(USER_AGENT_TEMPLATE, conf.HostInfo.ServerName, conf.HostInfo.AppVersion, conf.GoVersion)
 	fmt.Println("Loaded filter entries:", len(conf.InstablockFilter))
 	stringEnabled := conf.ServerConfig.StringFilteringEnabled
 	color := ansi.Red
@@ -252,44 +252,8 @@ func get_asset(w http.ResponseWriter, r *http.Request) {
 	version := query.Get("version")
 	assetType := query.Get("type")
 	w.Header().Set("Content-Type", "application/json")
-	if placeId == "" {
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Missing required query parameter \"placeId\"",
-			ResponseCode: 400,
-		})
-		return
-	}
-	_, err := strconv.ParseInt(placeId, 10, 0)
-	aidInt, err2 := strconv.ParseInt(assetId, 10, 0) // prevents injection attacks
-	if err != nil || err2 != nil || strings.Contains(assetType, "\r\n") {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Invalid Parameters supplied",
-			ResponseCode: 400,
-		})
-		return
-	}
-	if _, blocked := BLOCKED_ASSET_IDS[float64(aidInt)]; blocked {
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, "")
-		return
-	}
-	FINAL_URL := ASSET_DELIVERY_URL + assetId
-	if version != "" {
-		_, err3 := strconv.ParseInt(version, 10, 0) // prevents injection attacks
-		if err3 != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ApiError{
-				Error:        "Invalid Parameters supplied",
-				ResponseCode: 400,
-			})
-			return
-		}
-		FINAL_URL = FINAL_URL + "/version/" + version
-	}
 
-	data := fetchAssetData(FINAL_URL, placeId, assetType, w)
+	data := fetchAssetData(assetId, version, placeId, assetType, w)
 	if data == "" {
 		return
 	}
@@ -324,43 +288,7 @@ func get_asset_v2(w http.ResponseWriter, r *http.Request) {
 	placeId := query.Get("placeId")
 	version := query.Get("version")
 	w.Header().Set("Content-Type", "application/json")
-	if placeId == "" {
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Missing required query parameter \"placeId\"",
-			ResponseCode: 400,
-		})
-		return
-	}
-	_, err := strconv.ParseInt(placeId, 10, 0)
-	aidInt, err2 := strconv.ParseInt(assetId, 10, 0) // prevents injection attacks
-	if err != nil || err2 != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Invalid Parameters supplied",
-			ResponseCode: 400,
-		})
-		return
-	}
-	if _, blocked := BLOCKED_ASSET_IDS[float64(aidInt)]; blocked {
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, "")
-		return
-	}
-	FINAL_URL := ASSET_DELIVERY_URL + assetId
-	if version != "" {
-		_, err3 := strconv.ParseInt(version, 10, 0) // prevents injection attacks
-		if err3 != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ApiError{
-				Error:        "Invalid Parameters supplied",
-				ResponseCode: 400,
-			})
-			return
-		}
-		FINAL_URL = FINAL_URL + "/version/" + version
-	}
-
-	data := fetchAssetData(FINAL_URL, placeId, "Model", w)
+	data := fetchAssetData(assetId, version, placeId, "Model", w)
 	if data == "" {
 		return
 	}
@@ -382,46 +310,7 @@ func get_asset_old(w http.ResponseWriter, r *http.Request) {
 	placeId := query.Get("placeId")
 	version := query.Get("version")
 	assetType := query.Get("type")
-	if placeId == "" {
-		w.WriteHeader(400)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Missing required query parameter \"placeId\"",
-			ResponseCode: 400,
-		})
-		return
-	}
-	_, err := strconv.ParseInt(placeId, 10, 0)
-	aidInt, err2 := strconv.ParseInt(assetId, 10, 0) // prevents injection attacks
-	if err != nil || err2 != nil || strings.Contains(assetType, "\r\n") {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Invalid Parameters supplied",
-			ResponseCode: 400,
-		})
-		return
-	}
-	if _, blocked := BLOCKED_ASSET_IDS[float64(aidInt)]; blocked {
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, "")
-		return
-	}
-	FINAL_URL := ASSET_DELIVERY_URL + assetId
-	if version != "" {
-		_, err3 := strconv.ParseInt(version, 10, 0) // prevents injection attacks
-		if err3 != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(ApiError{
-				Error:        "Invalid Parameters supplied",
-				ResponseCode: 400,
-			})
-			return
-		}
-		FINAL_URL = FINAL_URL + "/version/" + version
-	}
-	data := fetchAssetData(FINAL_URL, placeId, assetType, w)
+	data := fetchAssetData(assetId, version, placeId, assetType, w)
 	if data == "" {
 		return
 	}
@@ -761,11 +650,46 @@ func GetUptime() map[string]string {
 	}
 }
 
-func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.ResponseWriter) string {
+func fetchAssetData(assetId string, version string, placeId string, assetType string, w http.ResponseWriter) string {
 	if assetType == "" {
 		assetType = "Model"
 	}
-
+	if placeId == "" {
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Missing required query parameter \"placeId\"",
+			ResponseCode: 400,
+		})
+		return ""
+	}
+	_, err := strconv.ParseInt(placeId, 10, 0)
+	aidInt, err2 := strconv.ParseInt(assetId, 10, 0) // prevents injection attacks
+	if err != nil || err2 != nil || strings.Contains(assetType, "\r") || strings.Contains(assetType, "\n") {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Invalid Parameters supplied",
+			ResponseCode: 400,
+		})
+		return ""
+	}
+	if _, blocked := BLOCKED_ASSET_IDS[float64(aidInt)]; blocked {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprint(w, "")
+		return ""
+	}
+	FINAL_URL := ASSET_DELIVERY_URL + assetId
+	if version != "" {
+		_, err3 := strconv.ParseInt(version, 10, 0) // prevents injection attacks
+		if err3 != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Invalid Parameters supplied",
+				ResponseCode: 400,
+			})
+			return ""
+		}
+		FINAL_URL = FINAL_URL + "/version/" + version
+	}
 	req, err := http.NewRequest("GET", FINAL_URL, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -789,6 +713,7 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 		})
 		return ""
 	}
+	defer res.Body.Close()
 	//fmt.Printf("%s %s (%d)\n", "Response Code: ", res.Status, res.StatusCode)
 	rets := ""
 	switch res.StatusCode {
@@ -813,6 +738,7 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 			break
 		}
 		res2, err := http.Get(data.Location)
+		defer res2.Body.Close()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(ApiError{
@@ -856,7 +782,8 @@ func fetchAssetData(FINAL_URL string, placeId string, assetType string, w http.R
 		cooldownUntil := time.Now().Add(time.Duration(secs) * time.Second)
 
 		assetCooldown.Store(FINAL_URL, cooldownUntil)
-	}*/
+	}
+	*/
 	default:
 		w.WriteHeader(res.StatusCode)
 		var details RobloxApiError

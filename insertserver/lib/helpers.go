@@ -384,14 +384,23 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 		RefArray(data, int(ExtObjCount)) //external refs, not applicable
 		uriIndex := 0
 		objIndex := 0
+		if len(sourceTypes) != sizeof {
+			return nil, fmt.Errorf("source types length mismatch: %d != %d", len(sourceTypes), sizeof)
+		}
 		for i := 0; i < sizeof; i++ {
 			t := sourceTypes[i]
 			var propVal any
 			switch t {
 			case "uri":
+				if uriIndex >= len(Uris) {
+					return nil, fmt.Errorf("uri index out of range: %d >= %d", uriIndex, len(Uris))
+				}
 				propVal = Uris[uriIndex]
 				uriIndex += 1
 			case "obj":
+				if objIndex >= len(Objs) {
+					return nil, fmt.Errorf("object index out of range: %d >= %d", objIndex, len(Objs))
+				}
 				propVal = Objs[objIndex]
 				objIndex += 1
 			}
