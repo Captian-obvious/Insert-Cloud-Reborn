@@ -5,7 +5,6 @@ local Services={
     GeometryService=game:GetService("GeometryService"),
 };
 local mod={
-    _VERSION="8.0.0",
     modules={
         b64=require(script.Parent.Base64), --b64
         json=require(script.Parent.JSON), --json
@@ -15,11 +14,6 @@ local mod={
     debug_mode=false, --prints additional stuff to console
 };
 local parseUrl=nil;
-export type UnionOptions={
-    CollisionFidelity:Enum.CollisionFidelity,
-    RenderFidelity:Enum.RenderFidelity,
-    SplitApart:boolean,
-};
 
 function print_if_debug(...)
     if mod.debug_mode then
@@ -29,7 +23,7 @@ end;
 function mod:initialize(url)
     parseUrl=url;
 end;
-function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection,isExperimental)
+function mod:applyAssetId(assetId:string,isIntersection,isExperimental)
     local loadable=nil;
     local cache=script:FindFirstChild("UnionCache") or Instance.new("Folder",script);
     cache.Name="UnionCache";
@@ -47,7 +41,7 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection,isE
             if findCache then
                 loadable=findCache:Clone();
             else
-                loadable=(isExperimental) and self:applyChildDataNew(childData,options,isIntersection) or self:applyChildData(childData,options,isIntersection);
+                loadable=(isExperimental) and self:applyChildDataNew(childData,isIntersection) or self:applyChildData(childData,isIntersection);
                 local cached=loadable:Clone();
                 cached.Parent=cache;
                 cached.Name=cacheName;
@@ -60,7 +54,7 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection,isE
     end;
     return loadable;
 end;
-function mod:applyAssetData(assetData:string,options:UnionOptions,isIntersection,isExperimental)
+function mod:applyAssetData(assetData:string,isIntersection,isExperimental)
     print("asset data called");
     local suc,res=pcall(function()
         local response=Services.HttpService:RequestAsync({
@@ -98,9 +92,14 @@ function mod:applyAssetData(assetData:string,options:UnionOptions,isIntersection
     if not childData then
         return nil;
     end;
-    return (isExperimental) and self:applyChildDataNew(childData,options,isIntersection) or self:applyChildData(childData,options,isIntersection);
+    return (isExperimental) and self:applyChildDataNew(childData,isIntersection) or self:applyChildData(childData,isIntersection);
 end;
-function centerUnionPivot(union,options,parent)
+local options={
+    CollisionFidelity=Enum.CollisionFidelity.Default,
+    RenderFidelity=Enum.RenderFidelity.Precise,
+    SplitApart=false,
+};
+function centerUnionPivot(union,parent)
     local tempModel = Instance.new("Model");
     union.Parent = tempModel;
     tempModel.PrimaryPart = union;
@@ -122,7 +121,7 @@ function centerUnionPivot(union,options,parent)
     union.Parent=parent;
 end;
 
-function mod:applyChildData(childData,options:UnionOptions,isIntersection)
+function mod:applyChildData(childData,isIntersection)
     local suc,res=pcall(function()
         local response=Services.HttpService:RequestAsync({
             Url=parseUrl,
@@ -192,29 +191,29 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection)
             local old=partToAttachTo;
             local suc,Union=pcall(function()
                 if isIntersection then
-                    partToAttachTo=partToAttachTo:IntersectAsync(parts,options.CollisionFidelity,options.RenderFidelity);
+                    partToAttachTo=partToAttachTo:IntersectAsync(parts,Enum.CollisionFidelity.Default,Enum.RenderFidelity.Precise);
                     partToAttachTo.Parent=loadFolder;
-                    partToAttachTo=old:IntersectAsync({partToAttachTo},options.CollisionFidelity,options.RenderFidelity); -- this is odd but fixes the problems
+                    partToAttachTo=old:IntersectAsync({partToAttachTo},Enum.CollisionFidelity.Default,Enum.RenderFidelity.Precise); -- this is odd but fixes the problems
                     partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-                    centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+                    centerUnionPivot(partToAttachTo,partToAttachTo.Parent);
                     old:Destroy();
                     return partToAttachTo;
                 end;
                 print_if_debug(parts);
-                partToAttachTo=partToAttachTo:UnionAsync(parts,options.CollisionFidelity,options.RenderFidelity);
+                partToAttachTo=partToAttachTo:UnionAsync(parts,Enum.CollisionFidelity.Default,Enum.RenderFidelity.Precise);
                 partToAttachTo.Parent=model;
                 partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                 old:Destroy();
                 old=partToAttachTo;
                 print_if_debug(negativeParts);
                 if #negativeParts~=0 then
-                    partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,options.CollisionFidelity,options.RenderFidelity);
+                    partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,Enum.CollisionFidelity.Default,Enum.RenderFidelity.Precise);
                     partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();
                 end;
-                centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+                centerUnionPivot(partToAttachTo,partToAttachTo.Parent);
                 return partToAttachTo;
             end);
             if not suc then
@@ -239,7 +238,7 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection)
     end;
 end;
 
-function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection)
+function mod:applyChildDataNew(childData,isIntersection)
     local suc,res=pcall(function()
         local response=Services.HttpService:RequestAsync({
             Url=parseUrl,
@@ -314,7 +313,7 @@ function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection)
                     partToAttachTo=Services.GeometryService:IntersectAsync(old,{partToAttachTo},options)[1]; -- this is odd but fixes the problems
                     partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-                    centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+                    centerUnionPivot(partToAttachTo,partToAttachTo.Parent);
                     old:Destroy();
                     return partToAttachTo;
                 end;
@@ -331,7 +330,7 @@ function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection)
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();
                 end;
-                centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+                centerUnionPivot(partToAttachTo,partToAttachTo.Parent);
                 return partToAttachTo;
             end);
             if not suc then
