@@ -720,13 +720,17 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 	}
 	defer res.Body.Close()
 	rets := ""
-	/*if entry, ok := cdnCache.Load(assetId); ok {
+	verStr := "_" + version
+	if version == "" {
+		verStr = ""
+	}
+	versionedAssetId := assetId + verStr
+	if entry, ok := cdnCache.Load(versionedAssetId); ok {
 		cdnEntry := entry.(cdnCacheEntry)
 		if time.Now().After(cdnEntry.ExpiresAt) {
-			cdnCache.CompareAndDelete(assetId, entry)
+			cdnCache.CompareAndDelete(versionedAssetId, entry)
 		}
 	}
-	*/
 	switch res.StatusCode {
 	case 200:
 		var data AssetLocationData
@@ -763,15 +767,14 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			})
 			break
 		}
-		/*cdnCache.Store(assetId, cdnCacheEntry{
+		cdnCache.Store(versionedAssetId, cdnCacheEntry{
 			Location:  data.Location,
 			ExpiresAt: time.Now().Add(time.Minute * 1), // cache for 1 minute
-		})*/
+		})
 	case 403:
 		w.WriteHeader(http.StatusForbidden)
 		var details RobloxApiError
 		json.NewDecoder(res.Body).Decode(&details)
-
 		json.NewEncoder(w).Encode(ApiError{
 			Error:        "User is not authorized to access asset.",
 			ResponseCode: 403,
@@ -780,11 +783,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 	case 429:
 		if conf.ServerConfig.FileCachingEnabled {
 			rawPath := filepath.Join(cachePath, "raw")
-			verStr := "_" + version
-			if version == "" {
-				verStr = ""
-			}
-			thedata, err := os.ReadFile(filepath.Join(rawPath, assetId+verStr+".rbxm"))
+			thedata, err := os.ReadFile(filepath.Join(rawPath, versionedAssetId+".rbxm"))
 			if err != nil {
 				w.WriteHeader(http.StatusTooManyRequests)
 				json.NewEncoder(w).Encode(ApiError{
@@ -794,16 +793,25 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			} else {
 				rets = string(thedata)
 			}
-			/*} else if cdnEntry, ok := cdnCache.Load(assetId); ok {
+		} else if cdnEntry, ok := cdnCache.Load(versionedAssetId); ok {
 			cdnEntryData := cdnEntry.(cdnCacheEntry)
-			rets, err = fetchAssetFromLocation(cdnEntryData.Location)
-			if err != nil {
+			if time.Now().Before(cdnEntryData.ExpiresAt) {
+				rets, err = fetchAssetFromLocation(cdnEntryData.Location)
+				if err != nil {
+					w.WriteHeader(http.StatusTooManyRequests)
+					json.NewEncoder(w).Encode(ApiError{
+						Error:        "Upstream server is rate limiting requests, and cached CDN location failed to fetch.",
+						ResponseCode: 429,
+					})
+				}
+			} else {
 				w.WriteHeader(http.StatusTooManyRequests)
 				json.NewEncoder(w).Encode(ApiError{
-					Error:        "Upstream server is rate limiting requests, and cached CDN location failed to fetch.",
+					Error:        "Upstream server is rate limiting requests, and cached CDN location expired.",
 					ResponseCode: 429,
 				})
-			}*/
+			}
+
 		} else {
 			w.WriteHeader(http.StatusTooManyRequests)
 			json.NewEncoder(w).Encode(ApiError{
@@ -847,9 +855,10 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 	if version == "" {
 		verStr = ""
 	}
+	versionedAssetId := assetId + verStr
 	if conf.ServerConfig.FileCachingEnabled {
 		os.MkdirAll(rawPath, 0755)
-		file, err := os.Create(filepath.Join(rawPath, assetId+verStr+".rbxm"))
+		file, err := os.Create(filepath.Join(rawPath, versionedAssetId+".rbxm"))
 		if err != nil {
 			log.Println("failed to create cache file! " + err.Error())
 		} else {
