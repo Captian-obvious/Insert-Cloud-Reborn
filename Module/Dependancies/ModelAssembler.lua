@@ -390,6 +390,12 @@ local class_initializers={
     end,
     ["MeshPart"]=function(class_name,parent,inst,prop,refs,loadSettings)
         local midprop=prop.MeshId or prop.MeshID;
+        if not midprop or not midprop.value then
+            warn("MeshPart missing MeshId property, creating default Part instead.");
+            local part=Instance.new("Part");
+            part.Parent=parent;
+            return part;
+        end;
         local meshId=midprop.value;
         local textureId=prop.TextureID.value;
         local meshPart;
