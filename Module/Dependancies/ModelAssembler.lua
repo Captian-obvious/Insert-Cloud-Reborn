@@ -267,9 +267,10 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
         RenderFidelity=rendfidelity,
         SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
     };
+    local unionWorldCFrame=compile_prop("CFrame",prop.CFrame,refs,part);
     local function readChildData(data)
         return pcall(function()
-            return (experimental) and modules.unionBuilder:applyChildDataNew(data,options,isIntersection) or modules.unionBuilder:applyChildData(data,options,isIntersection);
+            return (experimental) and modules.unionBuilder:applyChildDataNew(data,unionWorldCFrame,options,isIntersection) or modules.unionBuilder:applyChildData(data,unionWorldCFrame,options,isIntersection);
         end);
     end;
     local function FinalizePart(part,model)
@@ -288,7 +289,7 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
     local suc,model;
     if assetId then
         suc,model=pcall(function()
-            return modules.unionBuilder:applyAssetId(assetId,options,isIntersection,experimental);
+            return modules.unionBuilder:applyAssetId(assetId,unionWorldCFrame,options,isIntersection,experimental);
         end);
     elseif childData then
         suc,model=readChildData(childData)
@@ -296,7 +297,7 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
         suc,model=readChildData(childData2);
     elseif assetData then
         suc,model=pcall(function()
-            return modules.unionBuilder:applyAssetData(assetData,options,isIntersection,experimental);
+            return modules.unionBuilder:applyAssetData(assetData,unionWorldCFrame,options,isIntersection,experimental);
         end);
     end;
     if suc and model~=nil then

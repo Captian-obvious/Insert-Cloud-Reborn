@@ -5,7 +5,7 @@ local Services={
     GeometryService=game:GetService("GeometryService"),
 };
 local mod={
-    _VERSION="8.0.0",
+    _VERSION="9.0.0",
     modules={
         b64=require(script.Parent.Base64), --b64
         json=require(script.Parent.JSON), --json
@@ -29,7 +29,7 @@ end;
 function mod:initialize(url)
     parseUrl=url;
 end;
-function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection,isExperimental)
+function mod:applyAssetId(assetId:string,worldCFrame:CFrame,options:UnionOptions,isIntersection,isExperimental)
     local loadable=nil;
     local cache=script:FindFirstChild("UnionCache") or Instance.new("Folder",script);
     cache.Name="UnionCache";
@@ -47,7 +47,7 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection,isE
             if findCache then
                 loadable=findCache:Clone();
             else
-                loadable=(isExperimental) and self:applyChildDataNew(childData,options,isIntersection) or self:applyChildData(childData,options,isIntersection);
+                loadable=(isExperimental) and self:applyChildDataNew(childData,worldCFrame,options,isIntersection) or self:applyChildData(childData,worldCFrame,options,isIntersection);
                 local cached=loadable:Clone();
                 cached.Parent=cache;
                 cached.Name=cacheName;
@@ -60,7 +60,7 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection,isE
     end;
     return loadable;
 end;
-function mod:applyAssetData(assetData:string,options:UnionOptions,isIntersection,isExperimental)
+function mod:applyAssetData(assetData:string,worldCFrame:CFrame,options:UnionOptions,isIntersection,isExperimental)
     print("asset data called");
     local suc,res=pcall(function()
         local response=Services.HttpService:RequestAsync({
@@ -98,7 +98,7 @@ function mod:applyAssetData(assetData:string,options:UnionOptions,isIntersection
     if not childData then
         return nil;
     end;
-    return (isExperimental) and self:applyChildDataNew(childData,options,isIntersection) or self:applyChildData(childData,options,isIntersection);
+    return (isExperimental) and self:applyChildDataNew(childData,worldCFrame,options,isIntersection) or self:applyChildData(childData,worldCFrame,options,isIntersection);
 end;
 function centerUnionPivot(union,options,parent)
     local tempModel = Instance.new("Model");
@@ -122,7 +122,7 @@ function centerUnionPivot(union,options,parent)
     union.Parent=parent;
 end;
 
-function mod:applyChildData(childData,options:UnionOptions,isIntersection)
+function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,isIntersection)
     local suc,res=pcall(function()
         local response=Services.HttpService:RequestAsync({
             Url=parseUrl,
@@ -180,12 +180,15 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection)
             local toConnect=model:GetChildren();
             for i=1,#toConnect do
                 v=toConnect[i];
-                if v:IsA("BasePart") and v~=partToAttachTo then
-                    if v:GetAttribute("IsNegateOperation") then
-                        print_if_debug("found");
-                        table.insert(negativeParts,v);
-                    else
-                        table.insert(parts,v);
+                if v:IsA("BasePart") then
+                    v.CFrame=worldCFrame*v.CFrame;
+                    if v~=partToAttachTo then
+                        if v:GetAttribute("IsNegateOperation") then
+                            print_if_debug("found");
+                            table.insert(negativeParts,v);
+                        else
+                            table.insert(parts,v);
+                        end;
                     end;
                 end;
             end;
@@ -239,7 +242,7 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection)
     end;
 end;
 
-function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection)
+function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions,isIntersection)
     local suc,res=pcall(function()
         local response=Services.HttpService:RequestAsync({
             Url=parseUrl,
@@ -297,12 +300,15 @@ function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection)
             local toConnect=model:GetChildren();
             for i=1,#toConnect do
                 v=toConnect[i];
-                if v:IsA("BasePart") and v~=partToAttachTo then
-                    if v:GetAttribute("IsNegateOperation") then
-                        print_if_debug("found");
-                        table.insert(negativeParts,v);
-                    else
-                        table.insert(parts,v);
+                if v:IsA("BasePart") then
+                    v.CFrame=worldCFrame*v.CFrame;
+                    if v~=partToAttachTo then
+                        if v:GetAttribute("IsNegateOperation") then
+                            print_if_debug("found");
+                            table.insert(negativeParts,v);
+                        else
+                            table.insert(parts,v);
+                        end;
                     end;
                 end;
             end;
