@@ -231,6 +231,7 @@ func main() {
 	})
 	r.HandleFunc("/api/v3/asset/{assetId}", get_asset).Methods("GET")
 	r.HandleFunc("/api/v3/parse", ParseHandler).Methods("POST")
+	r.HandleFunc("/api/v3/public/parse", ParseHandler).Methods("POST")
 	r.HandleFunc("/api/v2/asset/{assetId}", get_asset_v2).Methods("GET")
 	r.HandleFunc("/api/v1/asset/{assetId}", get_asset_old).Methods("GET")
 	r.HandleFunc("/server.py", ServerStatus).Methods("GET")
