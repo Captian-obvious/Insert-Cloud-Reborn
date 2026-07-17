@@ -146,6 +146,6 @@ only `Model`s were supported, but changes in the backend allowed support for oth
 
 ## `POST /api/v3/public/parse`
 Parse an [**RBXM**](https://dom.rojo.space/binary.html) Stream into a [**JSON Instance Tree**](#json-instance-tree);<br/>
-Used internally by the module to parse `UnionOperation`/`IntersectOperation` `ChildData` into its<br/> [**JSON Instance Tree**](#json-instance-tree)<br/>
+Useful to parse any [**RBXM**](https://dom.rojo.space/binary.html) Stream into its<br/> [**JSON Instance Tree**](#json-instance-tree)<br/>
 ### Parameters
 - Request `body`<span style="color: #ff0000">*</span>: Base64 encoded [**RBXM**](https://dom.rojo.space/binary.html) stream to parse
