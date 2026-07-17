@@ -867,6 +867,26 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 	}
 	if conf.ServerConfig.JSONCachingEnabled {
 		os.MkdirAll(jsonPath, 0755)
+		thedata, err := os.ReadFile(filepath.Join(rawPath, versionedAssetId+".rbxm"))
+		if err != nil {
+			log.Println("failed to read cache file! " + err.Error())
+		} else {
+			if data != string(thedata) {
+				log.Println("Cached file does not match fetched data, updating cache.")
+				file, err := os.Create(filepath.Join(rawPath, versionedAssetId+".rbxm"))
+				if err != nil {
+					log.Println("failed to create cache file! " + err.Error())
+				} else {
+					file.WriteString(data)
+				}
+			} else {
+				filedata, err := os.ReadFile(filepath.Join(jsonPath, versionedAssetId+".json"))
+				if err == nil {
+					fmt.Fprint(w, string(filedata))
+					return
+				}
+			}
+		}
 	}
 	rbxm, err := lib.Parse(data)
 	if err != nil {
@@ -903,6 +923,14 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 			},
 		})
 		return
+	}
+	if conf.ServerConfig.JSONCachingEnabled {
+		file, err := os.Create(filepath.Join(jsonPath, versionedAssetId+".json"))
+		if err != nil {
+			log.Println("failed to create cache file! " + err.Error())
+		} else {
+			file.Write(jDat)
+		}
 	}
 	fmt.Fprint(w, string(jDat))
 }
