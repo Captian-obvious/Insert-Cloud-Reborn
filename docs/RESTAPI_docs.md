@@ -110,9 +110,9 @@ mesh.
 
 # Fetch Endpoints
 
-**MOST OF THESE ENDPOINTS SUPPORT THE HEADER `x-api-key`!!**
-**IT IS RECOMMENDED YOU PROVIDE YOUR OWN `x-api-key` HEADER TO 
-AVOID RATE LIMITS ON THE PRIMARY DEFAULT ONE!**
+**MOST OF THESE ENDPOINTS SUPPORT THE HEADER `x-api-key`!!**<br/>
+**IT IS RECOMMENDED YOU PROVIDE YOUR OWN `x-api-key` HEADER <br/>
+TO AVOID RATE LIMITS ON THE PRIMARY DEFAULT ONE!**
 
 ## `GET /api/v3/asset/<assetId:int>`
 Fetches an asset from Roblox's Asset Storage and parses formats that are not standard into standard formats.<br/>
