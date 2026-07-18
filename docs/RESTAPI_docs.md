@@ -110,6 +110,10 @@ mesh.
 
 # Fetch Endpoints
 
+**MOST OF THESE ENDPOINTS SUPPORT THE HEADER `x-api-key`!!**
+**IT IS RECOMMENDED YOU PROVIDE YOUR OWN `x-api-key` HEADER TO 
+AVOID RATE LIMITS ON THE PRIMARY DEFAULT ONE!**
+
 ## `GET /api/v3/asset/<assetId:int>`
 Fetches an asset from Roblox's Asset Storage and parses formats that are not standard into standard formats.<br/>
 Supports all `AssetType`s that are [**RBXM**](https://dom.rojo.space/binary.html) (`Model`,`AvatarAsset`,etc) & supports `Image`s, `Mesh`es,<br/>

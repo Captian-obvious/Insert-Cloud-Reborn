@@ -271,7 +271,7 @@ func get_asset(w http.ResponseWriter, r *http.Request) {
 	assetType := query.Get("type")
 	w.Header().Set("Content-Type", "application/json")
 
-	data := fetchAssetData(assetId, version, placeId, assetType, w)
+	data := fetchAssetData(assetId, version, placeId, assetType, w, r)
 	if data == "" {
 		return
 	}
@@ -306,7 +306,7 @@ func get_asset_v2(w http.ResponseWriter, r *http.Request) {
 	placeId := query.Get("placeId")
 	version := query.Get("version")
 	w.Header().Set("Content-Type", "application/json")
-	data := fetchAssetData(assetId, version, placeId, "Model", w)
+	data := fetchAssetData(assetId, version, placeId, "Model", w, r)
 	if data == "" {
 		return
 	}
@@ -321,14 +321,13 @@ func get_asset_old(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
 	muxVars := mux.Vars(r)
 	assetId := muxVars["assetId"]
 	query := r.URL.Query()
 	placeId := query.Get("placeId")
 	version := query.Get("version")
 	assetType := query.Get("type")
-	data := fetchAssetData(assetId, version, placeId, assetType, w)
+	data := fetchAssetData(assetId, version, placeId, assetType, w, r)
 	if data == "" {
 		return
 	}
@@ -668,7 +667,7 @@ func GetUptime() map[string]string {
 	}
 }
 
-func fetchAssetData(assetId string, version string, placeId string, assetType string, w http.ResponseWriter) string {
+func fetchAssetData(assetId string, version string, placeId string, assetType string, w http.ResponseWriter, r *http.Request) string {
 	if assetType == "" {
 		assetType = "Model"
 	}
@@ -695,6 +694,20 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		fmt.Fprint(w, "")
 		return ""
 	}
+
+	USE_API_KEY := API_KEY
+	if r.Header.Get("x-api-key") != "" {
+		USE_API_KEY = r.Header.Get("x-api-key")
+		if strings.Contains(USE_API_KEY, "\r") || strings.Contains(USE_API_KEY, "\n") {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Invalid Parameters supplied",
+				ResponseCode: 400,
+			})
+			return ""
+		}
+	}
+
 	FINAL_URL := ASSET_DELIVERY_URL + assetId
 	if version != "" {
 		_, err3 := strconv.ParseInt(version, 10, 0) // prevents injection attacks
@@ -724,7 +737,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		})
 		return ""
 	}
-	req.Header.Set("x-api-key", API_KEY)
+	req.Header.Set("x-api-key", USE_API_KEY)
 	req.Header.Set("Roblox-Place-Id", placeId)
 	req.Header.Set("AssetType", assetType)
 	req.Header.Set("User-Agent", USER_AGENT)
