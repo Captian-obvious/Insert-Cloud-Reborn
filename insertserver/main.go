@@ -53,7 +53,13 @@ Logging.retryDelaySeconds -> (optional) delay between retries (before exponentia
 
 Logging.retryAttempts -> (optional) number of retry attempts before returning 429 for webhook logging
 
+ServerConfig.FileCachingEnabled -> Enable or disable caching of raw RBXM files
+
 ServerConfig.JSONCachingEnabled -> Enable or disable caching of parsed JSON files
+
+ServerConfig.ChunkCachingEnabled -> Enable or disable caching of chunked data
+
+ServerConfig.CachingMode -> "rolling" or "static" (rolling will delete old cache files and update them, static will keep them forever)
 
 ServerConfig.Control -> Some information for controlling the server
 
@@ -197,11 +203,17 @@ func main() {
 	USER_AGENT = fmt.Sprintf(USER_AGENT_TEMPLATE, conf.HostInfo.ServerName, conf.HostInfo.AppVersion, conf.GoVersion)
 	fmt.Println("Loaded filter entries:", len(conf.InstablockFilter))
 	stringEnabled := conf.ServerConfig.StringFilteringEnabled
+	cacheMode := strings.ToLower(conf.ServerConfig.CachingMode)
 	color := ansi.Red
+	color2 := color
 	if stringEnabled {
 		color = ansi.Green
 	}
+	if cacheMode == "rolling" {
+		color2 = ansi.Blue
+	}
 	fmt.Println("String filtering enabled: "+color, stringEnabled, ansi.Reset)
+	fmt.Println("Cache mode: "+color2, conf.ServerConfig.CachingMode, ansi.Reset)
 	log.New(os.Stdout, "", log.LstdFlags)
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -695,6 +707,13 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			return ""
 		}
 		FINAL_URL = FINAL_URL + "/version/" + version
+	}
+	if conf.ServerConfig.CachingMode == "static" {
+		rawPath := filepath.Join(cachePath, "raw")
+		thedata, err := os.ReadFile(filepath.Join(rawPath, assetId+".rbxm"))
+		if err == nil {
+			return string(thedata)
+		}
 	}
 	req, err := http.NewRequest("GET", FINAL_URL, nil)
 	if err != nil {

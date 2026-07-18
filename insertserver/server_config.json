@@ -2,7 +2,7 @@
     "AcceptsRequests":true,
     "HostInfo":{
         "ServerName":"insertserver",
-        "AppVersion":"3.29.0",
+        "AppVersion":"3.30.3",
         "Additional":{}
     },
     "Logging":{
@@ -12,6 +12,7 @@
         "FileCachingEnabled":false,
         "JSONCachingEnabled":false,
         "ChunkCachingEnabled":false,
+        "CachingMode":"rolling",
         "StringFilteringEnabled":true,
         "LoggingRateLimit":120,
         "ConfigReloadRateLimit":120,

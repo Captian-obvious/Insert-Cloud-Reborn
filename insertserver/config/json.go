@@ -30,11 +30,13 @@ type Logging struct {
 }
 
 type ServerConfig struct {
-	FileCachingEnabled     bool `json:"FileCachingEnabled"`
-	JSONCachingEnabled     bool `json:"JSONCachingEnabled"`
-	StringFilteringEnabled bool `json:"StringFilteringEnabled"`
-	LoggingRateLimit       int  `json:"LoggingRateLimit"`
-	ConfigReloadRateLimit  int  `json:"ConfigReloadRateLimit"`
+	FileCachingEnabled     bool   `json:"FileCachingEnabled"`
+	JSONCachingEnabled     bool   `json:"JSONCachingEnabled"`
+	ChunkCachingEnabled    bool   `json:"ChunkCachingEnabled"`
+	CachingMode            string `json:"CachingMode"`
+	StringFilteringEnabled bool   `json:"StringFilteringEnabled"`
+	LoggingRateLimit       int    `json:"LoggingRateLimit"`
+	ConfigReloadRateLimit  int    `json:"ConfigReloadRateLimit"`
 	Control                struct {
 		WorkingDirectory string `json:"WorkingDirectory"`
 		CacheFolderName  string `json:"CacheFolderName"`
