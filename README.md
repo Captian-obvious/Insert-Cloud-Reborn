@@ -71,7 +71,8 @@ local assetId = 123456789 -- Replace with your asset ID
 local parentInstance = workspace -- Replace with the desired parent instance
 local buildParent=game:GetService("ReplicatedStorage") -- Optional: Replace with the desired build parent instance
 local url="https://your-webservice-url.com/api/v3/asset" -- Replace with your webservice URL, default path for asset loading is /api/v3/asset/<assetId>?placeId=<placeId>
-local asset,err = InsertCloud:LoadAssetAsync(url,assetId,buildParent) --Recommended to build the asset in a service like ReplicatedStorage first
+local settingstable=InsertCloud:GetDefaultSettings(); --will default to InsertCloud:GetDefaultSettings() if left as nil
+local asset,err = InsertCloud:LoadAssetAsync(url,assetId,settingstable,buildParent) --Recommended to build the asset in a service like ReplicatedStorage first
 if err then
     print("Error info was returned");
 else
