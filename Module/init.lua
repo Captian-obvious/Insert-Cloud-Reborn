@@ -148,7 +148,7 @@ end;
 --[[
 Loads model by ID <code>assetid</code> from <code>url</code> and returns a container model for it
 ]]
-function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent:Instance?,position:Vector3,ver:number):Model
+function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,loadSettings,parent:Instance?,position:Vector3,ver:number):Model
     if type(url) ~= "string" and typeof(url)~="Secret" then return error("URL Parameter is invalid, must be a valid string") end;
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
@@ -182,6 +182,7 @@ function mod:LoadAssetAsync(url:Secret|string,assetid:number,loadSettings,parent
                     Method="GET",
                     Headers={
                         ["Accept"]="application/json",
+                        ["x-api-key"]=api_key,
                     },
                 });
                 if response.Success then
