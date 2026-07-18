@@ -210,7 +210,7 @@ func main() {
 		color = ansi.Green
 	}
 	if cacheMode == "rolling" {
-		color2 = ansi.Blue
+		color2 = ansi.Magenta
 	}
 	fmt.Println("String filtering enabled: "+color, stringEnabled, ansi.Reset)
 	fmt.Println("Cache mode: "+color2, conf.ServerConfig.CachingMode, ansi.Reset)
@@ -708,7 +708,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		}
 		FINAL_URL = FINAL_URL + "/version/" + version
 	}
-	if conf.ServerConfig.CachingMode == "static" {
+	if conf.ServerConfig.CachingMode == "static" && conf.ServerConfig.FileCachingEnabled {
 		rawPath := filepath.Join(cachePath, "raw")
 		thedata, err := os.ReadFile(filepath.Join(rawPath, assetId+".rbxm"))
 		if err == nil {
