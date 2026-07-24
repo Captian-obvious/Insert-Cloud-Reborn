@@ -226,7 +226,14 @@ func main() {
 	//free logging middleware yay!
 	r.Use(middleware.LoggingMiddleware)
 	// now our webserver actually begins
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("assets/"))))
+	r.PathPrefix("/static/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "%s", `<script>document.location.href="/request_error?code=404"</script>`)
+			return
+		}
+		http.StripPrefix("/static/", http.FileServer(http.Dir("assets/"))).ServeHTTP(w, r)
+	}))
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "public/index.html")
 	}).Methods("GET")
