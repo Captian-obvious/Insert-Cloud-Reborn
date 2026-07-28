@@ -628,7 +628,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 		if LogData.JobId != "" {
 			jobIdString = " in serverId " + LogData.JobId
 		}
-		logString = fmt.Sprintf("[%s] User %s (%d) loaded asset %s (%s)%s", TIME_NOW.Format(time.RFC3339), formatInjectDefense(LogData.UserName), LogData.UserId, formatInjectDefense(LogData.AssetName), formatInjectDefense(LogData.AssetId), formatInjectDefense(jobIdString))
+		logString = fmt.Sprintf("[%s] User %s (%d) loaded asset %s (%s)%s", TIME_NOW.Format(time.RFC3339), escapeString(LogData.UserName), LogData.UserId, escapeString(LogData.AssetName), escapeString(LogData.AssetId), escapeString(jobIdString))
 	case "script":
 		if LogData.Source == "" || LogData.Timestamp == "" || LogData.UserId == 0 {
 			w.WriteHeader(400)
@@ -645,7 +645,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 		if LogData.JobId != "" {
 			jobIdString = " in serverId " + LogData.JobId
 		}
-		logString = fmt.Sprintf("[%s] User %s (%d) ran a %s script at %s%s. View its source at path -> %s", TIME_NOW.Format(time.RFC3339), formatInjectDefense(LogData.UserName), LogData.UserId, formatInjectDefense(LogData.Type), formatInjectDefense(LogData.Timestamp), formatInjectDefense(jobIdString), "/test/script.lua")
+		logString = fmt.Sprintf("[%s] User %s (%d) ran a %s script at %s%s. View its source at path -> %s", TIME_NOW.Format(time.RFC3339), escapeString(LogData.UserName), LogData.UserId, escapeString(LogData.Type), escapeString(LogData.Timestamp), escapeString(jobIdString), "/test/script.lua")
 	}
 	LogEntry(logString)
 	json.NewEncoder(w).Encode(map[string]any{
@@ -1017,9 +1017,26 @@ func LogEntry(logString string) {
 	switch conf.Logging.Type {
 	case "stdout":
 		fmt.Println(logString)
+	case "file":
+		logFilePath := conf.Logging.Path
+		if logFilePath == "" {
+			logFilePath = "server.log"
+		}
+		file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Println("Failed to open log file:", err)
+			return
+		}
+		defer file.Close()
+		logger := log.New(file, "", log.LstdFlags)
+		logger.Println(logString)
+	default:
+		fmt.Println(logString)
 	}
 }
 
-func formatInjectDefense(str string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(str, "%", "%%"), "\n", "\\n")
+func escapeString(str string) string {
+	escaped, _ := json.Marshal(str)
+	str = string(escaped[1 : len(escaped)-1])
+	return str
 }
