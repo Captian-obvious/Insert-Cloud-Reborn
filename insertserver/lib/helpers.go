@@ -194,10 +194,10 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 			var values [4]float32
 			data.ReadNumber(binary.LittleEndian, &values)
 			quaternions[i] = Quaternion{
-				X: values[0],
-				Y: values[1],
-				Z: values[2],
-				W: values[3],
+				X: PurifyFloat32Value(values[0]),
+				Y: PurifyFloat32Value(values[1]),
+				Z: PurifyFloat32Value(values[2]),
+				W: PurifyFloat32Value(values[3]),
 			}
 		}
 		cfX := RbxF32Array(data, sizeof)
@@ -278,7 +278,7 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 			data.ReadNumber(binary.LittleEndian, &values)
 			properties[i] = Property{
 				Type:  "numberrange",
-				Value: values,
+				Value: [2]float32{PurifyFloat32Value(values[0]), PurifyFloat32Value(values[1])},
 			}
 		}
 	case 0x18:
@@ -483,7 +483,7 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				retVal[attr] = Attribute{
 					Type: "udim",
 					Value: UDim{
-						Scale:  s,
+						Scale:  PurifyFloat32Value(s),
 						Offset: int(o),
 					},
 				}
@@ -500,11 +500,11 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 					Type: "udim",
 					Value: UDim2{
 						X: UDim{
-							Scale:  sx,
+							Scale:  PurifyFloat32Value(sx),
 							Offset: int(ox),
 						},
 						Y: UDim{
-							Scale:  sy,
+							Scale:  PurifyFloat32Value(sy),
 							Offset: int(oy),
 						},
 					},
@@ -521,21 +521,21 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				data.ReadNumber(binary.LittleEndian, &vals)
 				retVal[attr] = Attribute{
 					Type:  "color3",
-					Value: vals,
+					Value: []float32{PurifyFloat32Value(vals[0]), PurifyFloat32Value(vals[1]), PurifyFloat32Value(vals[2])},
 				}
 			case 16:
 				var vals [2]float32
 				data.ReadNumber(binary.LittleEndian, &vals)
 				retVal[attr] = Attribute{
 					Type:  "vector2",
-					Value: vals,
+					Value: []float32{PurifyFloat32Value(vals[0]), PurifyFloat32Value(vals[1])},
 				}
 			case 17:
 				var vals [3]float32
 				data.ReadNumber(binary.LittleEndian, &vals)
 				retVal[attr] = Attribute{
 					Type:  "vector3",
-					Value: vals,
+					Value: []float32{PurifyFloat32Value(vals[0]), PurifyFloat32Value(vals[1]), PurifyFloat32Value(vals[2])},
 				}
 			case 20:
 				var vals [3]float32
@@ -548,12 +548,16 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				} else {
 					var values [9]float32
 					data.ReadNumber(binary.LittleEndian, &values)
-					matrix = values
+					matrix = [9]float32{
+						PurifyFloat32Value(values[0]), PurifyFloat32Value(values[1]), PurifyFloat32Value(values[2]),
+						PurifyFloat32Value(values[3]), PurifyFloat32Value(values[4]), PurifyFloat32Value(values[5]),
+						PurifyFloat32Value(values[6]), PurifyFloat32Value(values[7]), PurifyFloat32Value(values[8]),
+					}
 				}
 				retVal[attr] = Attribute{
 					Type: "cframe",
 					Value: map[string]any{
-						"position": map[string]any{"vector3": vals},
+						"position": map[string]any{"vector3": []float32{PurifyFloat32Value(vals[0]), PurifyFloat32Value(vals[1]), PurifyFloat32Value(vals[2])}},
 						"rotation": matrix,
 					},
 				}
@@ -565,7 +569,7 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 					var vals [3]float32
 					data.ReadNumber(binary.LittleEndian, &vals)
 					keypoints[k] = map[string]any{
-						"nskp": [3]float32{vals[2], vals[0], vals[1]},
+						"nskp": [3]float32{PurifyFloat32Value(vals[2]), PurifyFloat32Value(vals[0]), PurifyFloat32Value(vals[1])},
 					}
 				}
 			case 25:
@@ -581,8 +585,8 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 					data.ReadNumber(binary.LittleEndian, &color3Vals)
 					keypoints[k] = map[string]any{
 						"cskp": map[string]any{
-							"t":      tVal,
-							"color3": color3Vals,
+							"t":      PurifyFloat32Value(tVal),
+							"color3": []float32{PurifyFloat32Value(color3Vals[0]), PurifyFloat32Value(color3Vals[1]), PurifyFloat32Value(color3Vals[2])},
 						},
 					}
 				}
@@ -591,7 +595,7 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				data.ReadNumber(binary.LittleEndian, &vals)
 				retVal[attr] = Attribute{
 					Type:  "numberrange",
-					Value: vals,
+					Value: []float32{PurifyFloat32Value(vals[0]), PurifyFloat32Value(vals[1])},
 				}
 			case 28:
 				var vals1 [2]float32
@@ -601,8 +605,8 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				retVal[attr] = Attribute{
 					Type: "rect",
 					Value: Rect{
-						Position1: vals1[:],
-						Position2: vals2[:],
+						Position1: []float32{PurifyFloat32Value(vals1[0]), PurifyFloat32Value(vals1[1])},
+						Position2: []float32{PurifyFloat32Value(vals2[0]), PurifyFloat32Value(vals2[1])},
 					},
 				}
 			}
