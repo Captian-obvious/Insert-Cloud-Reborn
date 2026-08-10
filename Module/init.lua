@@ -35,23 +35,89 @@ local SolidModeling={
     isInitialized=false,
     urlToFetch=nil,
 };
-function get_model_center_old(mdl:Model):CFrame
-    local x_sum,z_sum,x_tot,z_tot,y_low=0,0,0,0,math.huge;
-    for i,v in ipairs(mdl:GetDescendants())do
-        if v:IsA("BasePart") then
-            local pos=v.Position;
-            x_tot = x_tot + 1;
-            z_tot = z_tot + 1;
-            x_sum = x_sum + pos.X;
-            z_sum = z_sum + pos.Z;
-            local y=pos.Y - v.Size.Y/2;
-            if y < y_low then
-                y_low = y;
-            end;
+export type QueueEntry={
+    Sending:boolean,
+    Send:()->(),
+    AssetId:number,
+    Fire:BindableEvent,
+}
+local queue={};
+local queueSize=500;
+function requestORQueue(url,assetId,placeId,ver,api_key)
+    local full_url;
+    if typeof(url)=="Secret" then
+        local appended="/"..assetId.."?placeId="..placeId;
+        if ver then
+            appended=appended.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
+        end;
+        full_url=url:AddSuffix(appended)
+    else
+        full_url=url.."/"..assetId.."?placeId="..placeId;
+        if ver then
+            full_url=full_url.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
         end;
     end;
-    return CFrame.new(x_sum/x_tot,y_low,z_sum/z_tot);
-end;
+    local errInf=nil;
+    local suc,res=pcall(function()
+        local response=Services.HttpService:RequestAsync({
+            Url=full_url,
+            Method="GET",
+            Headers={
+                ["Accept"]="application/json",
+                ["x-api-key"]=api_key,
+            },
+        });
+        if response.Success then
+            print("Response size:",#response.Body);
+            local ok, parsed = pcall(function()
+                return modules.json.decode(response.Body);
+            end);
+            if ok then
+                return parsed;
+            else
+                logMsg({
+                    MessageType="error",
+                    MessageText="Failed to parse JSON for asset " .. assetId .. ": " .. tostring(parsed)
+                });
+                return nil;
+            end;
+        else
+            local statusCode=response.StatusCode;
+            local statusMessage=response.StatusMessage;
+            if statusCode==429 and #queue<=queueSize then
+                logMsg({
+                    MessageType="warn",
+                    MessageText="HTTP 429 (Too Many Requests) for asset " .. assetId .. " (Place ID: " .. placeId .. ")."
+                });
+                local packedReturn={};
+                local queueEntry:QueueEntry={
+                    IsRetry=true,
+                    Sending=false, --once this goes true, it will request the asset and remove it from queue
+                    Fire=Instance.new("BindableEvent");
+                    AssetId=assetId,
+                    Send=function()
+                        queueEntry.Sending=true;
+                        packedReturn=table.pack(requestORQueue(url,assetId,placeId,ver,api_key));
+                    end,
+                };
+                table.insert(queue,queueEntry);
+                queueEntry.Fire.Event:Wait();
+                return unpack(packedReturn);
+            else
+                errInf=logMsg({
+                    MessageType="error",
+                    MessageText="Failed to load asset "..assetId.." due to request error: "..statusMessage.." ("..tostring(statusCode)..")",
+                    Arguments={
+                        StatusCode=statusCode,
+                        StatusMessage=statusMessage
+                    }
+                });
+            end;
+            return nil;
+        end;
+    end);
+    return suc,res,errInf;
+end
 --[[ Gets model center ]]
 function get_model_center(mdl:Model):CFrame
     local centercf,_=mdl:GetBoundingBox();
@@ -103,9 +169,54 @@ function print_if_debug(...)
         print(...);
     end;
 end;
+function getDefaultSettings()
+    return Configuration.DefaultSettings;
+end;
+function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
+    local data={
+        AssetIdParsed=assetid,
+        modelData={},
+    };
+    local assetid_string=tostring(assetid);
+    local suc,res,errInf=requestORQueue(url,assetid,game.PlaceId,ver,api_key);
+    if suc then
+        if res~=nil then
+            data.modelData=res;
+            local loaded=modules.modelAssembler:buildAsset(data,parent,loadSettings or getDefaultSettings());
+            initCenter(loaded);
+            modules.modelDefuser:defuseModel(loaded);
+            if loaded~=nil then
+                logMsg({
+                    MessageType="info",
+                    MessageText="Loaded asset "..assetid_string.." successfully!"
+                });
+                return loaded;
+            else
+                logMsg({
+                    MessageType="error",
+                    MessageText="Failed to load asset "..assetid_string..": Model was nil"
+                });
+                return nil,errInf;
+            end;
+        else
+            logMsg({
+                MessageType="error",
+                MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
+            });
+            return nil,errInf;
+        end;
+    else
+        errInf=tostring(res);
+        logMsg({
+            MessageType="error",
+            MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
+        });
+        return nil,errInf;
+    end;
+end;
 local mod={
     isInitialized=false,
-    _VERSION="7.1.0",
+    _VERSION="7.5.0", --module version
     _DEVELOPERS={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
@@ -157,97 +268,6 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
         theCache.Name="Cache";
         local modelContain=nil;
         local assetid_string=tostring(assetid);
-        local function fetchAndDecode()
-            local data={
-                AssetIdParsed=assetid,
-                modelData={},
-            };
-            local full_url;
-            if typeof(url)=="Secret" then
-                local appended="/"..assetid_string.."?placeId="..game.PlaceId;
-                if ver then
-                    appended=appended.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
-                end;
-                full_url=url:AddSuffix(appended)
-            else
-                full_url=url.."/"..assetid_string.."?placeId="..game.PlaceId;
-                if ver then
-                    full_url=full_url.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
-                end;
-            end;
-            local errInf=nil;
-            local suc,res=pcall(function()
-                local response=Services.HttpService:RequestAsync({
-                    Url=full_url,
-                    Method="GET",
-                    Headers={
-                        ["Accept"]="application/json",
-                        ["x-api-key"]=api_key,
-                    },
-                });
-                if response.Success then
-                    print("Response size:",#response.Body);
-                    local ok, parsed = pcall(function()
-                        return modules.json.decode(response.Body);
-                    end);
-                    if ok then
-                        return parsed;
-                    else
-                        logMsg({
-                            MessageType="error",
-                            MessageText="Failed to parse JSON for asset " .. assetid_string .. ": " .. tostring(parsed)
-                        });
-                        return nil;
-                    end;
-                else
-                    local statusCode=response.StatusCode;
-                    local statusMessage=response.StatusMessage;
-                    errInf=logMsg({
-                        MessageType="error",
-                        MessageText="Failed to load asset "..assetid_string.." due to request error: "..statusMessage.." ("..tostring(statusCode)..")",
-                        Arguments={
-                            StatusCode=statusCode,
-                            StatusMessage=statusMessage
-                        }
-                    });
-                    return nil;
-                end;
-            end);
-            if suc then
-                if res~=nil then
-                    data.modelData=res;
-                    local loaded=modules.modelAssembler:buildAsset(data,parent,loadSettings or self:getDefaultSettings());
-                    initCenter(loaded);
-                    modules.modelDefuser:defuseModel(loaded);
-                    if loaded~=nil then
-                        logMsg({
-                            MessageType="info",
-                            MessageText="Loaded asset "..assetid_string.." successfully!"
-                        });
-                        return loaded;
-                    else
-                        logMsg({
-                            MessageType="error",
-                            MessageText="Failed to load asset "..assetid_string..": Model was nil"
-                        });
-                        return nil,errInf;
-                    end;
-                else
-                    logMsg({
-                        MessageType="error",
-                        MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
-                    });
-                    return nil,errInf;
-                end;
-            else
-                errInf=tostring(res);
-                logMsg({
-                    MessageType="error",
-                    MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
-                });
-                return nil,errInf;
-            end;
-        end;
         local ErrorInfo=nil;
         logMsg({
             MessageType="info",
@@ -263,14 +283,14 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
                     MessageText="Loaded asset "..assetid_string.." from cache successfully!"
                 });
             else
-                modelContain,ErrorInfo=fetchAndDecode();
+                modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
                 if modelContain then
                     local newCache=modelContain:Clone();
                     newCache.Parent=theCache;
                 end;
             end;
         else
-            modelContain,ErrorInfo=fetchAndDecode();
+            modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
         end;
         self:PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:getDefaultSettings());
         return modelContain,ErrorInfo;
@@ -355,7 +375,7 @@ end;
 Gets default settings for loading assets 
 ]]
 function mod:GetDefaultSettings()
-    return Configuration.DefaultSettings;
+    return getDefaultSettings();
 end;
 --[[ 
 Initializes model for compiling 
@@ -549,7 +569,7 @@ Deprecated varient of InsertCloud:GetDefaultSettings()
 ]]
 @deprecated
 function mod:getDefaultSettings()
-    return self:GetDefaultSettings();
+    return getDefaultSettings();
 end;
 --[[
 Prints the developers of the module to console.
@@ -566,5 +586,21 @@ Returns the module version
 function mod:getVersion()
     return self._VERSION;
 end;
+
+task.spawn(function()
+    while task.wait(3) do
+        if #queue>0 then
+            local job:QueueEntry=queue[1];
+            if job then
+                job.Fire:Fire();
+                task.delay(.1,function()
+                    job.Fire:Destroy();
+                end);
+                job.Send();
+            end;
+            table.remove(queue,1);
+        end;
+    end;
+end);
 
 return mod;
