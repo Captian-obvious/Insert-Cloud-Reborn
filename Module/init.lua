@@ -102,7 +102,6 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
                     Fire=Instance.new("BindableEvent");
                     AssetId=assetId,
                     Send=function()
-                        queueEntry.Sending=true;
                         packedReturn=table.pack(requestORQueue(url,assetId,placeId,ver,api_key));
                     end,
                 };
@@ -581,3 +580,4 @@ task.spawn(function()
 end);
 
 return mod;
+
