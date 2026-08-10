@@ -43,18 +43,24 @@ export type QueueEntry={
 }
 local queue={};
 local queueSize=500;
-function requestORQueue(url,assetId,placeId,ver,api_key)
+function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
     local full_url;
     if typeof(url)=="Secret" then
         local appended="/"..assetId.."?placeId="..placeId;
         if ver then
             appended=appended.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
         end;
+        if assetType then
+            appended=appended.."&type="..assetType
+        end
         full_url=url:AddSuffix(appended)
     else
         full_url=url.."/"..assetId.."?placeId="..placeId;
         if ver then
             full_url=full_url.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
+        end;
+        if assetType then
+            full_url=full_url.."&type="..assetType
         end;
     end;
     local errInf=nil;
@@ -68,7 +74,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key)
             },
         });
         if response.Success then
-            print("Response size:",#response.Body);
+            --print("Response size:",#response.Body);
             local ok, parsed = pcall(function()
                 return modules.json.decode(response.Body);
             end);
@@ -309,36 +315,7 @@ function mod:LoadSolidModel(assetid:number)
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if SolidModeling.isInitialized then
         local assetid_string=tostring(assetid);
-        local full_url=SolidModeling.urlToFetch.."/"..assetid_string.."?placeId="..game.PlaceId.."&type=SolidModel";
-        local suc,res=pcall(function()
-            local response=Services.HttpService:RequestAsync({
-                Url=full_url,
-                Method="GET",
-                Headers={
-                    ["Accept"]="application/json",
-                },
-            });
-            if response.Success then
-                local ok, parsed = pcall(function()
-                    return modules.json.decode(response.Body);
-                end);
-                if ok then
-                    return parsed;
-                else
-                    logMsg({
-                        MessageType="error",
-                        MessageText="Failed to parse JSON for asset " .. assetid_string .. ": " .. tostring(parsed)
-                    });
-                    return nil;
-                end;
-            else
-                logMsg({
-                    MessageType="error",
-                    MessageText="Failed to load asset "..assetid_string.." due to request error: "..response.StatusMessage.." ("..tostring(response.StatusCode)..")"
-                });
-                return nil;
-            end;
-        end);
+        local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,game.PlaceId,nil,nil,"SolidModel")
         if suc then
             if res~=nil then
                 print_if_debug(res);
