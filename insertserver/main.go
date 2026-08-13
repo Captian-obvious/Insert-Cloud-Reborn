@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"insertapiv3/middleware"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -81,6 +83,15 @@ var CONFIG_FILE_PATH string = os.Getenv("CONFIG_FILE_PATH")
 var STARTED_AT time.Time
 var BLOCKED_ASSET_IDS map[float64]struct{}
 var cdnCache sync.Map // map[assetId]cdnCacheEntry
+var tr *http.Transport = &http.Transport{
+	MaxIdleConns:          200,
+	MaxIdleConnsPerHost:   200,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
+
+var client = &http.Client{Transport: tr}
 
 type LogJson struct {
 	AssetId   string `json:"AssetId"`
@@ -373,7 +384,11 @@ func AudioViewerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	thumbnail := ""
 	assetName := ""
-	res, err := http.Get(fmt.Sprintf("https://thumbnails.roblox.com/v1/assets?assetIds=%s&size=420x420&format=Png&isCircular=false", assetId))
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://thumbnails.roblox.com/v1/assets?assetIds=%s&size=420x420&format=Png&isCircular=false", assetId), nil)
+	if err != nil {
+		fmt.Println("failed to fetch thumbnail :(")
+	}
+	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Failed to fetch asset info.")
 	} else {
@@ -396,7 +411,7 @@ func AudioViewerHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		assetInfoFetchReq.Header.Set("x-api-key", API_KEY)
 		assetInfoFetchReq.Header.Set("User-Agent", USER_AGENT)
-		res2, err := http.DefaultClient.Do(assetInfoFetchReq)
+		res2, err := client.Do(assetInfoFetchReq)
 		if err != nil {
 			fmt.Println("Failed to fetch asset info. (request failed)")
 		} else {
@@ -580,8 +595,14 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 			jobIdString = " in serverId " + LogData.JobId
 		}
 		formattedTimestamp := escapeString(LogData.Timestamp)
-		scriptPath := "logging/" + LogData.Type + "-" + formattedTimestamp
-		logString = fmt.Sprintf("[%s] User %s (%d) ran a %s script at %s%s. View its source at path -> %s", TIME_NOW.Format(time.RFC3339), escapeString(LogData.UserName), LogData.UserId, escapeString(LogData.Type), formattedTimestamp, escapeString(jobIdString), scriptPath)
+		logPath := conf.Logging.ScriptPath
+		filename := LogData.Type + "-" + formattedTimestamp
+		printed := "at path -> " + logPath + "/" + filename
+		if logPath == "webhook" {
+			printed = "in latest webhook logs."
+		}
+		logString = fmt.Sprintf("[%s] User %s (%d) ran a %s script at %s%s. View its source %s", TIME_NOW.Format(time.RFC3339), escapeString(LogData.UserName), LogData.UserId, escapeString(LogData.Type), formattedTimestamp, escapeString(jobIdString), printed)
+		logScript(LogData.Source, logPath, filename)
 	}
 	LogEntry(logString)
 	json.NewEncoder(w).Encode(map[string]any{
@@ -686,7 +707,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 	req.Header.Set("AssetType", assetType)
 	req.Header.Set("User-Agent", USER_AGENT)
 	req.Header.Set("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		json.NewEncoder(w).Encode(ApiError{
@@ -810,7 +831,12 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 }
 
 func fetchAssetFromLocation(location string) (string, error) {
-	res, err := http.Get(location)
+	req, err := http.NewRequest("GET", location, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", USER_AGENT)
+	res, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -969,6 +995,66 @@ func LogEntry(logString string) {
 	default:
 		fmt.Println(logString)
 	}
+}
+
+func writeWebhookLog(url string, content string, filename string, filedata string) error {
+	var buf bytes.Buffer
+	formdata := multipart.NewWriter(&buf)
+	if err := formdata.WriteField("content", content); err != nil {
+		return err
+	}
+	file, err := formdata.CreateFormFile("file", filename)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(file, strings.NewReader(filedata))
+	if err != nil {
+		return err
+	}
+	if err = formdata.Close(); err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", url, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", formdata.FormDataContentType())
+	req.Header.Set("User-Agent", USER_AGENT)
+	req.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("webhook returned %d: %s\n", resp.StatusCode, string(body))
+		return fmt.Errorf("webhook returned %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+func logScript(source string, path string, fileName string) {
+	url := os.Getenv("LOG_URL")
+	if url == "" {
+		url = conf.Logging.URL
+	}
+	if path == "webhook" {
+		err := writeWebhookLog(url, fileName, fileName+".lua", source)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return
+	}
+	os.MkdirAll(path, 0755)
+	file, err := os.Create(path + "/" + fileName)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	defer file.Close()
+	file.WriteString(source)
 }
 
 func escapeString(str string) string {
