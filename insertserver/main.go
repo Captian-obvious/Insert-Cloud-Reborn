@@ -767,7 +767,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		}
 		cdnCache.Store(versionedAssetId, cdnCacheEntry{
 			Location:  data.Location,
-			ExpiresAt: time.Now().Add(time.Minute * 1), // cache for 1 minute
+			ExpiresAt: time.Now().Add(time.Minute * 6), // cache for 6 minutes
 		})
 	case 403:
 		w.WriteHeader(http.StatusForbidden)
