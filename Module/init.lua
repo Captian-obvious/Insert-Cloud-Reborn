@@ -43,6 +43,25 @@ export type QueueEntry={
 }
 local queue={};
 local queueSize=500;
+function handleQueue(url,assetId,placeId,ver,api_key,assetType)
+    logMsg({
+        MessageType="warn",
+        MessageText="HTTP 429 (Too Many Requests) for asset " .. assetId .. " (Place ID: " .. placeId .. ")."
+    });
+    local queueEntry:QueueEntry={
+        IsRetry=true,
+        Sending=false, --once this goes true, it will request the asset and remove it from queue
+        Fire=Instance.new("BindableEvent");
+        AssetId=assetId,
+        Send=function()
+            print("Retrying asset " .. assetId .. " (Place ID: " .. placeId .. ") in queue.")
+        end,
+    };
+    table.insert(queue,queueEntry);
+    queueEntry.Fire.Event:Wait();
+    local suc,res;
+    return requestORQueue(url,assetId,placeId,ver,api_key,assetType); --try again
+end;
 function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
     local full_url;
     if typeof(url)=="Secret" then
@@ -63,8 +82,8 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
             full_url=full_url.."&type="..assetType
         end;
     end;
-    local errInf=nil;
-    local suc,res=pcall(function()
+    local suc,res,errInf=nil,nil,nil;
+    suc,res=pcall(function()
         local response=Services.HttpService:RequestAsync({
             Url=full_url,
             Method="GET",
@@ -91,23 +110,8 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
             local statusCode=response.StatusCode;
             local statusMessage=response.StatusMessage;
             if statusCode==429 and #queue<=queueSize then
-                logMsg({
-                    MessageType="warn",
-                    MessageText="HTTP 429 (Too Many Requests) for asset " .. assetId .. " (Place ID: " .. placeId .. ")."
-                });
-                local packedReturn={};
-                local queueEntry:QueueEntry={
-                    IsRetry=true,
-                    Sending=false, --once this goes true, it will request the asset and remove it from queue
-                    Fire=Instance.new("BindableEvent");
-                    AssetId=assetId,
-                    Send=function()
-                        packedReturn=table.pack(requestORQueue(url,assetId,placeId,ver,api_key));
-                    end,
-                };
-                table.insert(queue,queueEntry);
-                queueEntry.Fire.Event:Wait();
-                return unpack(packedReturn);
+                suc,res,errInf=handleQueue(url,assetId,placeId,ver,api_key,assetType)
+                return (suc) and res or nil;
             else
                 errInf=logMsg({
                     MessageType="error",
@@ -122,7 +126,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
         end;
     end);
     return suc,res,errInf;
-end
+end;
 --[[ Gets model center ]]
 function get_model_center(mdl:Model):CFrame
     local centercf,_=mdl:GetBoundingBox();
@@ -564,15 +568,17 @@ function mod:getVersion()
 end;
 
 task.spawn(function()
-    while task.wait(3) do
+    while task.wait(2) do
         if #queue>0 then
             local job:QueueEntry=queue[1];
             if job then
-                job.Fire:Fire();
-                task.delay(.1,function()
-                    job.Fire:Destroy();
+                task.spawn(function()
+                    job.Send();
+                    job.Fire:Fire();
+                    task.delay(.1,function()
+                        job.Fire:Destroy();
+                    end);
                 end);
-                job.Send();
             end;
             table.remove(queue,1);
         end;
