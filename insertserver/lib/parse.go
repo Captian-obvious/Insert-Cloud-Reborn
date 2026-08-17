@@ -125,6 +125,9 @@ func Parse(data string) (*RBXM, error) {
 	if len(data) > (maxFileSizeMiB * 1024 * 1024) {
 		return nil, fmt.Errorf("File size is too large (exceeds %d MiB), please load a smaller file", maxFileSizeMiB)
 	}
+	if len(data) < len(xmlprefixthing) {
+		return nil, fmt.Errorf("%s", "File has no or too little data.")
+	}
 	rawData := newStream([]byte(data), false)
 	if rawData.ReadAsString(len(xmlprefixthing), false) == xmlprefixthing || rawData.ReadAsString(len(xmlprefixthing2), false) == xmlprefixthing2 {
 		fmt.Println("Detected RBXMX file, switching to RBXMX parser...")
