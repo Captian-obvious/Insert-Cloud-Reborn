@@ -19,6 +19,7 @@ local Configuration={
     DefaultParent=workspace,
     DefaultBuildParent=workspace,
     DebugMode=false,
+    RetryOnRateLimit=true,
 };
 local modules={
     modelAssembler=require(script.Dependancies.ModelAssembler),
@@ -109,7 +110,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
         else
             local statusCode=response.StatusCode;
             local statusMessage=response.StatusMessage;
-            if statusCode==429 and #queue<=queueSize then
+            if statusCode==429 and #queue<=queueSize and Configuration.RetryOnRateLimit then
                 suc,res,errInf=handleQueue(url,assetId,placeId,ver,api_key,assetType)
                 return (suc) and res or nil;
             else
@@ -586,4 +587,3 @@ task.spawn(function()
 end);
 
 return mod;
-
