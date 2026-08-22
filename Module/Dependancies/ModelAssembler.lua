@@ -240,73 +240,73 @@ local propertyTypes={
     end,
 };
 function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
-    if loadSettings.DisableSolidModeling then
-        -- fallback to old behavior (js make the instance)
-        local h=Instance.new(class_name);
-        h.Parent=parent;
-        return h;
-    end;
-    local experimental=loadSettings.ExperimentalUnions;
-    local assetId=(prop.AssetId and prop.AssetId.value~=nil and prop.AssetId.value~="") and prop.AssetId.value or nil;
-    local childData=(prop.ChildData and prop.ChildData.value~=nil and prop.ChildData.value~="") and prop.ChildData.value or nil;
-    local childData2=(prop.ChildData2 and prop.ChildData2.value~=nil and prop.ChildData2.value~="") and prop.ChildData2.value or nil;
-    local assetData=(prop.AssetData and prop.AssetData.value~=nil and prop.AssetData.value~="") and prop.AssetData.value or nil;
-    local typeToInit=(class_name~="NegateOperation") and class_name or "UnionOperation";
-    local isIntersection=(typeToInit=="IntersectOperation");
-    local part=Instance.new(typeToInit);
-    part.Parent=parent;
-    local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
-    if prop.CollisionFidelity and prop.CollisionFidelity.value then
-        colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
-    end;
-    if prop.RenderFidelity and prop.RenderFidelity.value then
-        rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
-    end;
-    local options={
-        CollisionFidelity=colfidelity,
-        RenderFidelity=rendfidelity,
-        SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
-    };
-    local unionWorldCFrame=compile_prop("CFrame",prop.CFrame,refs,part);
-    local function readChildData(data)
-        return pcall(function()
-            return (experimental) and modules.unionBuilder:applyChildDataNew(data,unionWorldCFrame,options,isIntersection) or modules.unionBuilder:applyChildData(data,unionWorldCFrame,options,isIntersection);
-        end);
-    end;
-    local function FinalizePart(part,model)
-        if model==nil then return end;
-        if model.ClassName=="PartOperation" then
-            part.Parent=parent;
-            part:SubstituteGeometry(model);
-            model:Destroy();
-        else
-            part:Destroy();
-            part=model;
-            part.Parent=parent;
-        end;
-        return part;
-    end;
-    local suc,model;
-    if assetId then
-        suc,model=pcall(function()
-            return modules.unionBuilder:applyAssetId(assetId,unionWorldCFrame,options,isIntersection,experimental);
-        end);
-    elseif childData then
-        suc,model=readChildData(childData)
-    elseif childData2 then
-        suc,model=readChildData(childData2);
-    elseif assetData then
-        suc,model=pcall(function()
-            return modules.unionBuilder:applyAssetData(assetData,unionWorldCFrame,options,isIntersection,experimental);
-        end);
-    end;
-    if suc and model~=nil then
-        part=FinalizePart(part,model);
-    end;
-    if (class_name=="NegateOperation") or (inst.tags and table.find(inst.tags,"rbxNegated")) then
-        part:SetAttribute("IsNegateOperation",true);
-    end;
-    return part;
+	if loadSettings.DisableSolidModeling then
+		-- fallback to old behavior (js make the instance)
+		local h=Instance.new(class_name);
+		h.Parent=parent;
+		return h;
+	end;
+	local experimental=loadSettings.ExperimentalUnions;
+	local assetId=(prop.AssetId and prop.AssetId.value~=nil and prop.AssetId.value~="") and prop.AssetId.value or nil;
+	local childData=(prop.ChildData and prop.ChildData.value~=nil and prop.ChildData.value~="") and prop.ChildData.value or nil;
+	local childData2=(prop.ChildData2 and prop.ChildData2.value~=nil and prop.ChildData2.value~="") and prop.ChildData2.value or nil;
+	local assetData=(prop.AssetData and prop.AssetData.value~=nil and prop.AssetData.value~="") and prop.AssetData.value or nil;
+	local typeToInit=(class_name~="NegateOperation") and class_name or "UnionOperation";
+	local isIntersection=(typeToInit=="IntersectOperation");
+	local part=Instance.new(typeToInit);
+	part.Parent=parent;
+	local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
+	if prop.CollisionFidelity and prop.CollisionFidelity.value then
+		colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+	end;
+	if prop.RenderFidelity and prop.RenderFidelity.value then
+		rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+	end;
+	local options={
+		CollisionFidelity=colfidelity,
+		RenderFidelity=rendfidelity,
+		SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
+	};
+	local unionWorldCFrame=compile_prop("CFrame",prop.CFrame,refs,part);
+	local function readChildData(data)
+		return pcall(function()
+			return (experimental) and modules.unionBuilder:applyChildDataNew(data,unionWorldCFrame,options,isIntersection) or modules.unionBuilder:applyChildData(data,unionWorldCFrame,options,isIntersection);
+		end);
+	end;
+	local function FinalizePart(part,model)
+		if model==nil then return end;
+		if model.ClassName=="PartOperation" then
+			part.Parent=parent;
+			part:SubstituteGeometry(model);
+			model:Destroy();
+		else
+			part:Destroy();
+			part=model;
+			part.Parent=parent;
+		end;
+		return part;
+	end;
+	local suc,model;
+	if assetId~=nil then
+		suc,model=pcall(function()
+			return modules.unionBuilder:applyAssetId(assetId,unionWorldCFrame,options,isIntersection,experimental);
+		end);
+	elseif childData~=nil then
+		suc,model=readChildData(childData)
+	elseif childData2~=nil then
+		suc,model=readChildData(childData2);
+	elseif assetData~=nil then
+		suc,model=pcall(function()
+			return modules.unionBuilder:applyAssetData(assetData,unionWorldCFrame,options,isIntersection,experimental);
+		end);
+	end;
+	if suc and model~=nil then
+		part=FinalizePart(part,model);
+	end;
+	if (class_name=="NegateOperation") or (inst.tags and table.find(inst.tags,"rbxNegated")) then
+		part:SetAttribute("IsNegateOperation",true);
+	end;
+	return part;
 end;
 function createSurfaceAppearanceAsync(prop) --the workaround, only color works though so....
     local uri=Content.fromUri
