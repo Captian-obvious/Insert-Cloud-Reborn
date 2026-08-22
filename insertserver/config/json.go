@@ -27,6 +27,7 @@ type Logging struct {
 	RetryDelay    int    `json:"retryDelaySeconds"`
 	RetryAttempts int    `json:"retryAttempts"`
 	Path          string `json:"path"`
+	ScriptPath    string `json:"scriptLogPath"`
 }
 
 type ServerConfig struct {

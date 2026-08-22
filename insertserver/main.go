@@ -602,7 +602,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 			printed = "in latest webhook logs."
 		}
 		logString = fmt.Sprintf("[%s] User %s (%d) ran a %s script at %s%s. View its source %s", TIME_NOW.Format(time.RFC3339), escapeString(LogData.UserName), LogData.UserId, escapeString(LogData.Type), formattedTimestamp, escapeString(jobIdString), printed)
-		logScript(LogData.Source, logPath, filename)
+		logScript(LogData.Source, logPath, filename, LogData.UserName)
 	}
 	LogEntry(logString)
 	json.NewEncoder(w).Encode(map[string]any{
@@ -1035,13 +1035,14 @@ func writeWebhookLog(url string, content string, filename string, filedata strin
 	return nil
 }
 
-func logScript(source string, path string, fileName string) {
+func logScript(source string, path string, fileName string, username string) {
 	url := os.Getenv("LOG_URL")
 	if url == "" {
 		url = conf.Logging.URL
 	}
 	if path == "webhook" {
-		err := writeWebhookLog(url, fileName, fileName+".lua", source)
+		scriptName := fileName + ".lua"
+		err := writeWebhookLog(url, scriptName+" loaded by "+username, scriptName, source)
 		if err != nil {
 			fmt.Println(err.Error())
 		}
