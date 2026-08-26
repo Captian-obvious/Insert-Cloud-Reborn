@@ -596,7 +596,7 @@ func LoggerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		formattedTimestamp := escapeString(LogData.Timestamp)
 		logPath := conf.Logging.ScriptPath
-		filename := LogData.Type + "-" + formattedTimestamp
+		filename := escapeString(LogData.Type) + "-" + formattedTimestamp
 		printed := "at path -> " + logPath + "/" + filename
 		if logPath == "webhook" {
 			printed = "in latest webhook logs."
