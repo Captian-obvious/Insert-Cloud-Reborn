@@ -29,6 +29,7 @@ import (
 
 const USER_AGENT_TEMPLATE string = "Superduperdev2InsertWebservice/3.0 (compatible; %s/%s %s)"
 const ASSET_DELIVERY_URL string = "https://apis.roblox.com/asset-delivery-api/v1/assetId/"
+const LEGACY_ASSET_DELIVERY_URL string = "https://assetdelivery.roblox.com/v1/assetId/"
 
 /*
 CONFIG STRUCTURE
@@ -77,6 +78,7 @@ var conf *config.RootConfig
 var cachePath string
 var USER_AGENT string
 var API_KEY string = os.Getenv("RBX_API_KEY")
+var LEGACY_AUTH string = os.Getenv("LEGACY_AUTH")
 var lastConfigReload int64
 var lastBatchLog int64
 var CONFIG_FILE_PATH string = os.Getenv("CONFIG_FILE_PATH")
@@ -143,6 +145,18 @@ type AssetMetadata struct {
 
 type AssetLocationData struct {
 	Location     string                  `json:"location"`
+	RequestID    string                  `json:"requestId"`
+	IsArchived   bool                    `json:"isArchived"`
+	AssetTypeID  int                     `json:"assetTypeId"`
+	IsRecordable bool                    `json:"isRecordable"`
+	Errors       []ApiErrorDetailsStruct `json:"errors,omitempty"`
+}
+
+type LegacyAssetLocationData struct {
+	Locations []struct {
+		AssetFormat string `json:"assetFormat"`
+		Location    string `json:"location"`
+	} `json:"locations"`
 	RequestID    string                  `json:"requestId"`
 	IsArchived   bool                    `json:"isArchived"`
 	AssetTypeID  int                     `json:"assetTypeId"`
@@ -290,7 +304,7 @@ func get_asset(w http.ResponseWriter, r *http.Request) {
 	assetType := query.Get("type")
 	w.Header().Set("Content-Type", "application/json")
 
-	data := fetchAssetData(assetId, version, placeId, assetType, w, r)
+	data := fetchAssetData(assetId, version, placeId, assetType, w, r, "")
 	if data == "" {
 		return
 	}
@@ -325,7 +339,7 @@ func get_asset_v2(w http.ResponseWriter, r *http.Request) {
 	placeId := query.Get("placeId")
 	version := query.Get("version")
 	w.Header().Set("Content-Type", "application/json")
-	data := fetchAssetData(assetId, version, placeId, "Model", w, r)
+	data := fetchAssetData(assetId, version, placeId, "Model", w, r, "")
 	if data == "" {
 		return
 	}
@@ -346,7 +360,7 @@ func get_asset_old(w http.ResponseWriter, r *http.Request) {
 	placeId := query.Get("placeId")
 	version := query.Get("version")
 	assetType := query.Get("type")
-	data := fetchAssetData(assetId, version, placeId, assetType, w, r)
+	data := fetchAssetData(assetId, version, placeId, assetType, w, r, "")
 	if data == "" {
 		return
 	}
@@ -632,7 +646,7 @@ func GetUptime() map[string]string {
 	}
 }
 
-func fetchAssetData(assetId string, version string, placeId string, assetType string, w http.ResponseWriter, r *http.Request) string {
+func fetchAssetData(assetId string, version string, placeId string, assetType string, w http.ResponseWriter, r *http.Request, aMode string) string {
 	if assetType == "" {
 		assetType = "Model"
 	}
@@ -659,8 +673,27 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		fmt.Fprint(w, "")
 		return ""
 	}
-
-	USE_API_KEY := API_KEY
+	if aMode == "" {
+		aMode = r.Header.Get("AuthMode")
+	}
+	var USE_API_KEY string
+	var USE_LEGACY_AUTH string
+	if aMode != "" && (strings.Contains(aMode, "\r") || strings.Contains(aMode, "\n")) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Invalid Parameters supplied",
+			ResponseCode: 400,
+		})
+		return ""
+	} else if aMode == "" {
+		if *conf.ServerConfig.OpenCloudFallbackEnabled {
+			USE_API_KEY = API_KEY
+			aMode = "apikey"
+		} else {
+			USE_LEGACY_AUTH = LEGACY_AUTH
+			aMode = "legacy"
+		}
+	}
 	if r.Header.Get("x-api-key") != "" {
 		USE_API_KEY = r.Header.Get("x-api-key")
 		if strings.Contains(USE_API_KEY, "\r") || strings.Contains(USE_API_KEY, "\n") {
@@ -671,9 +704,14 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			})
 			return ""
 		}
+		aMode = "apikey"
 	}
-
-	FINAL_URL := ASSET_DELIVERY_URL + assetId
+	var FINAL_URL string
+	if aMode != "legacy" {
+		FINAL_URL = ASSET_DELIVERY_URL + assetId
+	} else {
+		FINAL_URL = LEGACY_ASSET_DELIVERY_URL + assetId
+	}
 	if version != "" {
 		_, err3 := strconv.ParseInt(version, 10, 0) // prevents injection attacks
 		if err3 != nil {
@@ -702,7 +740,14 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		})
 		return ""
 	}
-	req.Header.Set("x-api-key", USE_API_KEY)
+	if aMode != "legacy" {
+		req.Header.Set("x-api-key", USE_API_KEY)
+	} else {
+		req.AddCookie(&http.Cookie{
+			Value: USE_LEGACY_AUTH,
+			Name:  ".ROBLOSECURITY",
+		})
+	}
 	req.Header.Set("Roblox-Place-Id", placeId)
 	req.Header.Set("AssetType", assetType)
 	req.Header.Set("User-Agent", USER_AGENT)
@@ -769,6 +814,19 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			Location:  data.Location,
 			ExpiresAt: time.Now().Add(time.Minute * 6), // cache for 6 minutes
 		})
+	case 401:
+		if aMode == "legacy" {
+			return fetchAssetData(assetId, version, placeId, assetType, w, r, "apikey")
+		} else {
+			w.WriteHeader(res.StatusCode)
+			var details RobloxApiError
+			json.NewDecoder(res.Body).Decode(&details)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Could not fetch asset because api returned errors",
+				ResponseCode: res.StatusCode,
+				Details:      details.Errors,
+			})
+		}
 	case 403:
 		w.WriteHeader(http.StatusForbidden)
 		var details RobloxApiError
