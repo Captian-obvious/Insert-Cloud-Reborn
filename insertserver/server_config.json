@@ -15,7 +15,9 @@
         "CachingMode":"rolling",
         "StringFilteringEnabled":true,
         "LoggingRateLimit":120,
+        "AuthenticationMode":"apikey",
         "ConfigReloadRateLimit":120,
+        "OpenCloudFallbackEnabled":true,
         "Control":{
             "WorkingDirectory":".",
             "CacheFolderName":"cache"
