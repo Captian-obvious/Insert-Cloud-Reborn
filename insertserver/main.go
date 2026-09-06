@@ -686,7 +686,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		})
 		return ""
 	} else if aMode == "" {
-		if *conf.ServerConfig.OpenCloudFallbackEnabled {
+		if conf.ServerConfig.AuthenticationMode != "legacy" && API_KEY != "" {
 			USE_API_KEY = API_KEY
 			aMode = "apikey"
 		} else {
@@ -694,7 +694,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			aMode = "legacy"
 		}
 	}
-	if r.Header.Get("x-api-key") != "" {
+	if r.Header.Get("x-api-key") != "" { // the official way, but we also support legacy auth for backwards compatibility
 		USE_API_KEY = r.Header.Get("x-api-key")
 		if strings.Contains(USE_API_KEY, "\r") || strings.Contains(USE_API_KEY, "\n") {
 			w.WriteHeader(http.StatusBadRequest)
@@ -705,6 +705,22 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			return ""
 		}
 		aMode = "apikey"
+	} else if v, err := r.Cookie(".ROBLOSECURITY"); err == nil && v.Value != "" { 
+		/*
+		this code, it scares me, but it works so i guess its fine. 
+		handling of tokens IS secure i guess since its only in memory and not logged anywhere, 
+		but still, it scares me.
+		*/
+		USE_LEGACY_AUTH = v.Value
+		if strings.Contains(USE_LEGACY_AUTH, "\r") || strings.Contains(USE_LEGACY_AUTH, "\n") {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Invalid Parameters supplied",
+				ResponseCode: 400,
+			})
+			return ""
+		}
+		aMode = "legacy"
 	}
 	var FINAL_URL string
 	if aMode != "legacy" {
@@ -815,7 +831,7 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			ExpiresAt: time.Now().Add(time.Minute * 6), // cache for 6 minutes
 		})
 	case 401:
-		if aMode == "legacy" {
+		if aMode == "legacy" && *conf.ServerConfig.OpenCloudFallbackEnabled {
 			return fetchAssetData(assetId, version, placeId, assetType, w, r, "apikey")
 		} else {
 			w.WriteHeader(res.StatusCode)
@@ -828,14 +844,18 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			})
 		}
 	case 403:
-		w.WriteHeader(http.StatusForbidden)
-		var details RobloxApiError
-		json.NewDecoder(res.Body).Decode(&details)
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "User is not authorized to access asset.",
-			ResponseCode: 403,
-			Details:      details.Errors,
-		})
+		if aMode == "legacy" && *conf.ServerConfig.OpenCloudFallbackEnabled {
+			return fetchAssetData(assetId, version, placeId, assetType, w, r, "apikey") //fallback if legacy fails and config allows it
+		} else {
+			w.WriteHeader(http.StatusForbidden)
+			var details RobloxApiError
+			json.NewDecoder(res.Body).Decode(&details)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "User is not authorized to access asset.",
+				ResponseCode: 403,
+				Details:      details.Errors,
+			})
+		}
 	case 429:
 		if conf.ServerConfig.FileCachingEnabled {
 			rawPath := filepath.Join(cachePath, "raw")

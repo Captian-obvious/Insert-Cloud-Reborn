@@ -31,14 +31,16 @@ type Logging struct {
 }
 
 type ServerConfig struct {
-	FileCachingEnabled     bool   `json:"FileCachingEnabled"`
-	JSONCachingEnabled     bool   `json:"JSONCachingEnabled"`
-	ChunkCachingEnabled    bool   `json:"ChunkCachingEnabled"`
-	CachingMode            string `json:"CachingMode"`
-	StringFilteringEnabled bool   `json:"StringFilteringEnabled"`
-	LoggingRateLimit       int    `json:"LoggingRateLimit"`
-	ConfigReloadRateLimit  int    `json:"ConfigReloadRateLimit"`
-	Control                struct {
+	FileCachingEnabled       bool   `json:"FileCachingEnabled"`
+	JSONCachingEnabled       bool   `json:"JSONCachingEnabled"`
+	ChunkCachingEnabled      bool   `json:"ChunkCachingEnabled"`
+	CachingMode              string `json:"CachingMode"`
+	StringFilteringEnabled   bool   `json:"StringFilteringEnabled"`
+	LoggingRateLimit         int    `json:"LoggingRateLimit"`
+	ConfigReloadRateLimit    int    `json:"ConfigReloadRateLimit"`
+	AuthenticationMode       string `json:"AuthenticationMode"`
+	OpenCloudFallbackEnabled *bool  `json:"OpenCloudFallbackEnabled"`
+	Control                  struct {
 		WorkingDirectory string `json:"WorkingDirectory"`
 		CacheFolderName  string `json:"CacheFolderName"`
 	} `json:"Control"`
@@ -52,6 +54,10 @@ func LoadConfig(path string) (*RootConfig, error) {
 	var cfg RootConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
+	}
+	if cfg.ServerConfig.OpenCloudFallbackEnabled == nil {
+		def := true
+		cfg.ServerConfig.OpenCloudFallbackEnabled = &def
 	}
 	cfg.GoVersion = runtime.Version()
 	return &cfg, nil
