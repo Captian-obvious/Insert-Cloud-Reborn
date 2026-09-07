@@ -503,9 +503,10 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	rbxm, err := lib.Parse(string(assetDataRaw))
+	rbxm, err := lib.Parse(data)
+	recover := recover()
 	if err != nil {
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ApiError{
 			Error:        "Failed to parse data",
 			ResponseCode: 500,
@@ -516,7 +517,20 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		})
-		log.Println("An error occured while parsing data: " + err.Error())
+		return
+	}
+	if recover != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Failed to parse data",
+			ResponseCode: 500,
+			Details: []ApiErrorDetailsStruct{
+				{
+					Error: recover.(error).Error(),
+					Code:  -1,
+				},
+			},
+		})
 		return
 	}
 	jsonData := OutputRBXM{
@@ -970,13 +984,29 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		}
 	}
 	rbxm, err := lib.Parse(data)
+	recover := recover()
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ApiError{
 			Error:        "Failed to parse data",
 			ResponseCode: 500,
 			Details: []ApiErrorDetailsStruct{
 				{
 					Error: string(err.Error()),
+					Code:  -1,
+				},
+			},
+		})
+		return
+	}
+	if recover != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Failed to parse data",
+			ResponseCode: 500,
+			Details: []ApiErrorDetailsStruct{
+				{
+					Error: recover.(error).Error(),
 					Code:  -1,
 				},
 			},
