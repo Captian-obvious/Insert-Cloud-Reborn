@@ -503,7 +503,7 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	rbxm, err := lib.Parse(data)
+	rbxm, err := lib.Parse(string(assetDataRaw))
 	recover := recover()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
