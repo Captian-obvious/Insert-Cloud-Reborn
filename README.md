@@ -61,6 +61,9 @@ If you do not have a build here are the steps to set it up:
 #### REQUIRED ENVIRONMENT VARIABLES:
 - `RBX_API_KEY` - A Roblox Open Cloud API Key with the scopes `asset:read` and `legacy-asset:manage`
 
+#### **LEGACY AUTH MODE**
+There is also support for legacy authentication but this is not recommended as it could break at any time.
+
 The webservice will be available at `http://localhost:5000` by default when using Local
 ### Roblox Module Usage
 1. Require the module in your Roblox script.
