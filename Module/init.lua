@@ -110,7 +110,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
         else
             local statusCode=response.StatusCode;
             local statusMessage=response.StatusMessage;
-            if statusCode==429 and #queue<=queueSize and Configuration.RetryOnRateLimit then
+            if ((statusCode==429 and #queue<=queueSize) or (not suc and tostring(res)=="Number of requests exceeded limit")) and Configuration.RetryOnRateLimit then
                 suc,res,errInf=handleQueue(url,assetId,placeId,ver,api_key,assetType)
                 return (suc) and res or nil;
             else
