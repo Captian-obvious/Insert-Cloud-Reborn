@@ -224,6 +224,46 @@ function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
         return nil,errInf;
     end;
 end;
+function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
+    if typeof(model)~="Instance" or not model:IsA("Model") then
+        logMsg({
+            MessageType="error",
+            MessageText="The model parameter must be a valid Model instance"
+        });
+        return nil;
+    end;
+    model.Parent=workspace;
+    model:MakeJoints();
+    if position then
+        model:MoveTo(position);
+    end;
+    local desc=model:GetDescendants();
+    if loadSettings.AnchorParts then
+        for i=1,#desc do
+            local v=desc[i];
+            if v:IsA("BasePart") then
+                v.Anchored=true;
+            end;
+        end;
+    end;
+    if loadSettings.RemoveDecals then
+        for i=1,#desc do
+            local v=desc[i];
+            if v:IsA("Decal") or v:IsA("Texture") then
+                v:Destroy();
+            end;
+        end;
+    end;
+    if loadSettings.RemoveScripts then
+        for i=1,#desc do
+            local v=desc[i];
+            if v:IsA("BaseScript") or v:IsA("ModuleScript") then
+                v:Destroy();
+            end;
+        end;
+    end;
+    model.Parent=parent or Configuration.DefaultParent or workspace;
+end;
 local mod={
     isInitialized=false,
     _VERSION="7.7.0", --module version
@@ -303,7 +343,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
         else
             modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
         end;
-        self:PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:getDefaultSettings());
+        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:getDefaultSettings());
         return modelContain,ErrorInfo;
     else
         logMsg({
@@ -359,56 +399,7 @@ Gets default settings for loading assets
 function mod:GetDefaultSettings()
     return getDefaultSettings();
 end;
---[[ 
-Initializes model for compiling 
-]]
-function mod:PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
-    if not self.isInitialized then
-        logMsg({
-            MessageType="error",
-            MessageText="You must initialize the module before calling the PrepareAsset method"
-        });
-        return nil;
-    end;
-    if typeof(model)~="Instance" or not model:IsA("Model") then
-        logMsg({
-            MessageType="error",
-            MessageText="The model parameter must be a valid Model instance"
-        });
-        return nil;
-    end;
-    model.Parent=workspace;
-    model:MakeJoints();
-    if position then
-        model:MoveTo(position);
-    end;
-    local desc=model:GetDescendants();
-    if loadSettings.AnchorParts then
-        for i=1,#desc do
-            local v=desc[i];
-            if v:IsA("BasePart") then
-                v.Anchored=true;
-            end;
-        end;
-    end;
-    if loadSettings.RemoveDecals then
-        for i=1,#desc do
-            local v=desc[i];
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v:Destroy();
-            end;
-        end;
-    end;
-    if loadSettings.RemoveScripts then
-        for i=1,#desc do
-            local v=desc[i];
-            if v:IsA("BaseScript") or v:IsA("ModuleScript") then
-                v:Destroy();
-            end;
-        end;
-    end;
-    model.Parent=parent or Configuration.DefaultParent or workspace;
-end;
+
 --[[ 
 Fixes model for completion of inserted object, insert tool also calls this for security 
 ]]
@@ -524,13 +515,6 @@ Deprecated Varient of InsertCloud:CompileAsset()
 @deprecated
 function mod:compile_asset(model:Model,parent:Instance?)
     return self:CompileAsset(model,parent)
-end
---[[ 
-Deprecated Varient of InsertCloud:PrepareAsset()
-]]
-@deprecated
-function mod:prepare_asset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
-    return self:PrepareAsset(model,parent,position,loadSettings)
 end
 --[[
 Deprecated Varient of InsertCloud:RestartServer()
