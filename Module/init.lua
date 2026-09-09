@@ -237,6 +237,7 @@ local mod={
         isInitialized=false, --backwards compatible, since the primary initialize for solidModeling already checks if its initialized and does nothing if it is
     }
 };
+print("Insert Cloud v"..mod._VERSION.." by Superduperdev2 (@Superduperbloxer2) loaded successfully!");
 --[[ Initializes the module ]]
 function mod:initialize()
     if self.isInitialized then return end;
