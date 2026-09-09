@@ -226,7 +226,7 @@ function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
 end;
 local mod={
     isInitialized=false,
-    _VERSION="7.5.0", --module version
+    _VERSION="7.7.0", --module version
     _DEVELOPERS={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
