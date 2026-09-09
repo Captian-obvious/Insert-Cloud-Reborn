@@ -118,69 +118,72 @@ local function handleQueue(url,assetId,placeId,ver,api_key,assetType)
     return requestORQueue(url,assetId,placeId,ver,api_key,assetType); --try again
 end;
 function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
-    local full_url;
-    if typeof(url)=="Secret" then
-        local appended="/"..assetId.."?placeId="..placeId;
-        if ver then
-            appended=appended.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
-        end;
-        if assetType then
-            appended=appended.."&type="..assetType
-        end
-        full_url=url:AddSuffix(appended)
-    else
-        full_url=url.."/"..assetId.."?placeId="..placeId;
-        if ver then
-            full_url=full_url.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
-        end;
-        if assetType then
-            full_url=full_url.."&type="..assetType
-        end;
-    end;
-    local suc,res,errInf=nil,nil,nil;
-    suc,res=pcall(function()
-        local response=Services.HttpService:RequestAsync({
-            Url=full_url,
-            Method="GET",
-            Headers={
-                ["Accept"]="application/json",
-                ["x-api-key"]=api_key,
-            },
-        });
-        if response.Success then
-            --print("Response size:",#response.Body);
-            local ok, parsed = pcall(function()
-                return modules.json.decode(response.Body);
-            end);
-            if ok then
-                return parsed;
-            else
-                logMsg({
-                    MessageType="error",
-                    MessageText="Failed to parse JSON for asset " .. assetId .. ": " .. tostring(parsed)
-                });
-                return nil;
-            end;
-        else
-            local statusCode=response.StatusCode;
-            local statusMessage=response.StatusMessage;
-            if ((statusCode==429 and #queue<=queueSize) or (not suc and tostring(res)=="Number of requests exceeded limit")) and Configuration.RetryOnRateLimit then
-                suc,res,errInf=handleQueue(url,assetId,placeId,ver,api_key,assetType)
-                return (suc) and res or nil;
-            else
-                errInf=logMsg({
-                    MessageType="error",
-                    MessageText="Failed to load asset "..assetId.." due to request error: "..statusMessage.." ("..tostring(statusCode)..")",
-                    Arguments={
-                        StatusCode=statusCode,
-                        StatusMessage=statusMessage
-                    }
-                });
-            end;
-            return nil;
-        end;
-    end);
-    return suc,res,errInf;
+	local full_url;
+	if typeof(url)=="Secret" then
+		local appended="/"..assetId.."?placeId="..placeId;
+		if ver then
+			appended=appended.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
+		end;
+		if assetType then
+			appended=appended.."&type="..assetType
+		end
+		full_url=url:AddSuffix(appended)
+	else
+		full_url=url.."/"..assetId.."?placeId="..placeId;
+		if ver then
+			full_url=full_url.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
+		end;
+		if assetType then
+			full_url=full_url.."&type="..assetType
+		end;
+	end;
+	local suc,res,errInf=nil,nil,nil;
+	suc,res=pcall(function()
+		local response=Services.HttpService:RequestAsync({
+			Url=full_url,
+			Method="GET",
+			Headers={
+				["Accept"]="application/json",
+				["x-api-key"]=api_key,
+			},
+		});
+		if response.Success then
+			--print("Response size:",#response.Body);
+			local ok, parsed = pcall(function()
+				return modules.json.decode(response.Body);
+			end);
+			if ok then
+				return parsed;
+			else
+				logMsg({
+					MessageType="error",
+					MessageText="Failed to parse JSON for asset " .. assetId .. ": " .. tostring(parsed)
+				});
+				return nil;
+			end;
+		else
+			local statusCode=response.StatusCode;
+			local statusMessage=response.StatusMessage;
+			if (statusCode==429 and #queue<=queueSize) and Configuration.RetryOnRateLimit then
+				suc,res,errInf=handleQueue(url,assetId,placeId,ver,api_key,assetType)
+				return (suc) and res or nil;
+			else
+				errInf=logMsg({
+					MessageType="error",
+					MessageText="Failed to load asset "..assetId.." due to request error: "..statusMessage.." ("..tostring(statusCode)..")",
+					Arguments={
+						StatusCode=statusCode,
+						StatusMessage=statusMessage
+					}
+				});
+			end;
+			return nil;
+		end;
+	end);
+	if (not suc and tostring(res)=="Number of requests exceeded limit") and Configuration.RetryOnRateLimit then
+		return handleQueue(url,assetId,placeId,ver,api_key,assetType);
+	end
+	return suc,res,errInf;
 end;
 local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
     local data={
