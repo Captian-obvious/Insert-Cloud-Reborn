@@ -44,7 +44,61 @@ export type QueueEntry={
 }
 local queue={};
 local queueSize=500;
-function handleQueue(url,assetId,placeId,ver,api_key,assetType)
+--[[ Gets model center ]]
+local function GetModelCenter(mdl:Model):CFrame
+    local centercf,_=mdl:GetBoundingBox();
+    local modelsize=mdl:GetExtentsSize();
+    local baseCF=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);
+    return baseCF;
+end;
+local function initCenter(mdl:Model)
+    local center=GetModelCenter(mdl);
+    local cent_part=Instance.new("Part",mdl);
+    cent_part.Name="CenterPart";
+    cent_part.Anchored=true;
+    cent_part.CanCollide=false;
+    cent_part.Transparency=1;
+    cent_part.Size=Vector3.new(1,1,1);
+    cent_part.CFrame=center;
+    mdl.PrimaryPart=cent_part;
+end;
+--[[
+Logs various messages about the state of the module, and of <code>LoggerMessage.MessageType</code>
+]]
+export type LoggerMessage={
+    MessageType: string,
+    MessageText: string,
+    Arguments: any,
+}
+local function logMsg(msg:LoggerMessage,...)
+    local prefix="Insert Cloud:";
+    if typeof(msg)=="string" then
+        msg={
+            MessageType="info",
+            MessageText=msg,
+        };
+    end;
+    if msg.MessageType=="warn" then
+        warn(prefix.." "..msg.MessageText);
+    elseif msg.MessageType=="info" then
+        print(prefix,msg.MessageText);
+    elseif msg.MessageType=="error" then
+        warn(prefix.." ERR:"..msg.MessageText);
+    else
+        print(prefix,msg.MessageText); --indentical to info
+    end;
+    return msg.Arguments; -- return the error info if any
+end;
+--[[ PrintDebug ]]
+local function print_if_debug(...)
+    if Configuration.DebugMode then
+        print(...);
+    end;
+end;
+local function getDefaultSettings()
+    return Configuration.DefaultSettings;
+end;
+local function handleQueue(url,assetId,placeId,ver,api_key,assetType)
     logMsg({
         MessageType="warn",
         MessageText="HTTP 429 (Too Many Requests) for asset " .. assetId .. " (Place ID: " .. placeId .. ")."
@@ -128,61 +182,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
     end);
     return suc,res,errInf;
 end;
---[[ Gets model center ]]
-function get_model_center(mdl:Model):CFrame
-    local centercf,_=mdl:GetBoundingBox();
-    local modelsize=mdl:GetExtentsSize();
-    local baseCF=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);
-    return baseCF;
-end;
-function initCenter(mdl:Model)
-    local center=get_model_center(mdl);
-    local cent_part=Instance.new("Part",mdl);
-    cent_part.Name="CenterPart";
-    cent_part.Anchored=true;
-    cent_part.CanCollide=false;
-    cent_part.Transparency=1;
-    cent_part.Size=Vector3.new(1,1,1);
-    cent_part.CFrame=center;
-    mdl.PrimaryPart=cent_part;
-end;
---[[
-Logs various messages about the state of the module, and of <code>LoggerMessage.MessageType</code>
-]]
-export type LoggerMessage={
-    MessageType: string,
-    MessageText: string,
-    Arguments: any,
-}
-function logMsg(msg:LoggerMessage,...)
-    local prefix="Insert Cloud:";
-    if typeof(msg)=="string" then
-        msg={
-            MessageType="info",
-            MessageText=msg,
-        };
-    end;
-    if msg.MessageType=="warn" then
-        warn(prefix.." "..msg.MessageText);
-    elseif msg.MessageType=="info" then
-        print(prefix,msg.MessageText);
-    elseif msg.MessageType=="error" then
-        warn(prefix.." ERR:"..msg.MessageText);
-    else
-        print(prefix,msg.MessageText); --indentical to info
-    end;
-    return msg.Arguments; -- return the error info if any
-end;
---[[ PrintDebug ]]
-function print_if_debug(...)
-    if Configuration.DebugMode then
-        print(...);
-    end;
-end;
-function getDefaultSettings()
-    return Configuration.DefaultSettings;
-end;
-function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
+local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
     local data={
         AssetIdParsed=assetid,
         modelData={},
@@ -224,7 +224,7 @@ function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
         return nil,errInf;
     end;
 end;
-function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
+local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
     if typeof(model)~="Instance" or not model:IsA("Model") then
         logMsg({
             MessageType="error",
@@ -232,34 +232,22 @@ function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSetting
         });
         return nil;
     end;
-    model.Parent=workspace;
     model:MakeJoints();
     if position then
         model:MoveTo(position);
     end;
+    local anchorParts = loadSettings.AnchorParts;
+    local removeDecals = loadSettings.RemoveDecals;
+    local removeScripts = loadSettings.RemoveScripts;
     local desc=model:GetDescendants();
-    if loadSettings.AnchorParts then
-        for i=1,#desc do
-            local v=desc[i];
-            if v:IsA("BasePart") then
-                v.Anchored=true;
-            end;
-        end;
-    end;
-    if loadSettings.RemoveDecals then
-        for i=1,#desc do
-            local v=desc[i];
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v:Destroy();
-            end;
-        end;
-    end;
-    if loadSettings.RemoveScripts then
-        for i=1,#desc do
-            local v=desc[i];
-            if v:IsA("BaseScript") or v:IsA("ModuleScript") then
-                v:Destroy();
-            end;
+    for i=1,#desc do
+        local v=desc[i];
+        if (v:IsA("BasePart") and anchorParts) then
+            v.Anchored=true;
+        elseif (v:IsA("Decal") or v:IsA("Texture")) and removeDecals then
+            v:Destroy();
+        elseif (v:IsA("BaseScript") or v:IsA("ModuleScript")) and removeScripts then
+            v:Destroy();
         end;
     end;
     model.Parent=parent or Configuration.DefaultParent or workspace;
@@ -343,7 +331,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
         else
             modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
         end;
-        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:GetDefaultSettings());
+        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or getDefaultSettings());
         return modelContain,ErrorInfo;
     else
         logMsg({
