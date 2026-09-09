@@ -343,7 +343,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
         else
             modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
         end;
-        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:getDefaultSettings());
+        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or self:GetDefaultSettings());
         return modelContain,ErrorInfo;
     else
         logMsg({
