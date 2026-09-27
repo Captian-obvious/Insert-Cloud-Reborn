@@ -259,7 +259,7 @@ func main() {
 			return
 		}
 		http.StripPrefix("/static/", fs).ServeHTTP(w, r)
-	}))
+	})).Methods("GET")
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "public/index.html")
 	}).Methods("GET")
@@ -719,11 +719,11 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			return ""
 		}
 		aMode = "apikey"
-	} else if v, err := r.Cookie(".ROBLOSECURITY"); err == nil && v.Value != "" { 
+	} else if v, err := r.Cookie(".ROBLOSECURITY"); err == nil && v.Value != "" {
 		/*
-		this code, it scares me, but it works so i guess its fine. 
-		handling of tokens IS secure i guess since its only in memory and not logged anywhere, 
-		but still, it scares me.
+			this code, it scares me, but it works so i guess its fine.
+			handling of tokens IS secure i guess since its only in memory and not logged anywhere,
+			but still, it scares me.
 		*/
 		USE_LEGACY_AUTH = v.Value
 		if strings.Contains(USE_LEGACY_AUTH, "\r") || strings.Contains(USE_LEGACY_AUTH, "\n") {
@@ -983,30 +983,32 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 			}
 		}
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic:", r)
+			err := fmt.Errorf("panic: %v", r)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Failed to parse data",
+				ResponseCode: 500,
+				Details: []ApiErrorDetailsStruct{
+					{
+						Error: "An unhandled error occurred! " + err.Error(),
+						Code:  -1,
+					},
+				},
+			})
+			return
+		}
+	}()
 	rbxm, err := lib.Parse(data)
-	recover := recover()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ApiError{
 			Error:        "Failed to parse data",
 			ResponseCode: 500,
 			Details: []ApiErrorDetailsStruct{
 				{
 					Error: string(err.Error()),
-					Code:  -1,
-				},
-			},
-		})
-		return
-	}
-	if recover != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Failed to parse data",
-			ResponseCode: 500,
-			Details: []ApiErrorDetailsStruct{
-				{
-					Error: recover.(error).Error(),
 					Code:  -1,
 				},
 			},
