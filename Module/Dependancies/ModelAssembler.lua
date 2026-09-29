@@ -635,28 +635,32 @@ function initProp(obj,propName,prop,refs,loadSettings)
 end;
 function mod.buildProps(instances,refs,loadSettings)
     for obj,inst in pairs(instances) do
-        for propName,prop in pairs(inst.properties) do
-            local suc,err=pcall(initProp,obj,propName,prop,refs,loadSettings);
-            if not suc and mod.debug_mode then
-                warn("Failed to apply property "..propName.." to instance: "..tostring(err));
+        task.spawn(function()
+            for propName,prop in pairs(inst.properties) do
+                local suc,err=pcall(initProp,obj,propName,prop,refs,loadSettings);
+                if not suc and mod.debug_mode then
+                    warn("Failed to apply property "..propName.." to instance: "..tostring(err));
+                end;
             end;
-        end;
+        end);
     end;
 end;
 --[[ Build attributes tree --]]
 function mod.buildAttr(instances,refs)
     for obj,inst in pairs(instances) do
-        local attributes=inst.attributes or {};
-        for attrName,attr in pairs(attributes) do
-            local suc,err=pcall(function()
-                if (obj) then
-                    obj:SetAttribute(attrName,compile_prop(attrName,attr,refs,obj));
+        task.spawn(function()
+            local attributes=inst.attributes or {};
+            for attrName,attr in pairs(attributes) do
+                local suc,err=pcall(function()
+                    if (obj) then
+                        obj:SetAttribute(attrName,compile_prop(attrName,attr,refs,obj));
+                    end;
+                end);
+                if not suc and mod.debug_mode then
+                    warn("Failed to apply attribute "..attrName.." to instance: "..tostring(err));
                 end;
-            end);
-            if not suc and mod.debug_mode then
-                warn("Failed to apply attribute "..attrName.." to instance: "..tostring(err));
             end;
-        end;
+        end);
     end;
 end;
 --[[ Builds asset from its tree and related data --]]
