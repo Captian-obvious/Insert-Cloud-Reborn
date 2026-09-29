@@ -5,30 +5,39 @@ local Services={
     GeometryService=game:GetService("GeometryService"),
 };
 local mod={
-    _VERSION="9.0.0",
+    _VERSION="10.0.0",
     modules={
         b64=require(script.Parent.Base64), --b64
         json=require(script.Parent.JSON), --json
+        parser=require(script.Parent.RobloxFileFormat), --parser
         modelAssembler=nil, --populated at runtime
         icloud=nil, --populated at runtime
     },
     debug_mode=false, --prints additional stuff to console
 };
-local parseUrl=nil;
 export type UnionOptions={
     CollisionFidelity:Enum.CollisionFidelity,
     RenderFidelity:Enum.RenderFidelity,
     SplitApart:boolean,
 };
 
+function parse(data)
+    return mod.modules.parser(mod.modules.b64.decode(data));
+end;
+
 function print_if_debug(...)
     if mod.debug_mode then
         print(...);
     end;
 end;
-function mod:initialize(url)
-    parseUrl=url;
+function warn_if_debug(...)
+    if mod.debug_mode then
+        warn(...);
+    end;
 end;
+--function mod:initialize(url)
+--    parseUrl=url;
+--end;
 function mod:applyAssetId(assetId:string,worldCFrame:CFrame,options:UnionOptions,isIntersection,isExperimental)
     local loadable=nil;
     local cache=script:FindFirstChild("UnionCache") or Instance.new("Folder",script);
@@ -62,21 +71,7 @@ function mod:applyAssetId(assetId:string,worldCFrame:CFrame,options:UnionOptions
 end;
 function mod:applyAssetData(assetData:string,worldCFrame:CFrame,options:UnionOptions,isIntersection,isExperimental)
     print("asset data called");
-    local suc,res=pcall(function()
-        local response=Services.HttpService:RequestAsync({
-            Url=parseUrl,
-            Method="POST",
-            Headers={
-                ["Accept"]="application/json",
-            },
-            Body=assetData,
-        });
-        if response.Success then
-            return self.modules.json.decode(response.Body);
-        else
-            return error("Could not fetch. Request Error: "..response.StatusMessage.." ("..tostring(response.StatusCode)..")\nWhat went wrong:\n"..response.Body);
-        end;
-    end);
+    local suc,res=pcall(parse,assetData);
     local childData=nil;
     if suc then
         if res~=nil then
@@ -123,21 +118,7 @@ function centerUnionPivot(union,options,parent)
 end;
 
 function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,isIntersection)
-    local suc,res=pcall(function()
-        local response=Services.HttpService:RequestAsync({
-            Url=parseUrl,
-            Method="POST",
-            Headers={
-                ["Accept"]="application/json",
-            },
-            Body=childData,
-        });
-        if response.Success then
-            return self.modules.json.decode(response.Body);
-        else
-            return error("Could not fetch. Request Error: "..response.StatusMessage.." ("..tostring(response.StatusCode)..")\nWhat went wrong:\n"..response.Body);
-        end;
-    end);
+    local suc,res=pcall(parse,childData);
     if not suc then
         warn("Failed to get data: "..res);
     else
@@ -151,7 +132,7 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
             local inst=tocheck[i];
             if inst:IsA("BaseScript") then
                 inst:Destroy();
-                warn("Union ChildData attempted to include a script: ", inst:GetFullName());
+                warn_if_debug("Union ChildData attempted to include a script: ", inst:GetFullName());
             end;
         end;
         local function reconstruct(model:Model)
@@ -243,21 +224,7 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
 end;
 
 function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions,isIntersection)
-    local suc,res=pcall(function()
-        local response=Services.HttpService:RequestAsync({
-            Url=parseUrl,
-            Method="POST",
-            Headers={
-                ["Accept"]="application/json",
-            },
-            Body=childData,
-        });
-        if response.Success then
-            return self.modules.json.decode(response.Body);
-        else
-            return error("Could not fetch. Request Error: "..response.StatusMessage.." ("..tostring(response.StatusCode)..")\nWhat went wrong:\n"..response.Body);
-        end;
-    end);
+    local suc,res=pcall(parse,childData);
     if not suc then
         warn("Failed to get data: "..res);
     else
@@ -271,7 +238,7 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
             local inst=tocheck[i];
             if inst:IsA("BaseScript") then
                 inst:Destroy();
-                warn("Union ChildData attempted to include a script: ", inst:GetFullName());
+                warn_if_debug("Union ChildData attempted to include a script: ", inst:GetFullName());
             end;
         end;
         local function reconstruct(model)

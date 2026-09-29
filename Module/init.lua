@@ -180,9 +180,9 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
             return nil;
         end;
     end);
-    if (not suc and tostring(res)=="Number of requests exceeded limit") and Configuration.RetryOnRateLimit then
-        return handleQueue(url,assetId,placeId,ver,api_key,assetType);
-    end
+    --if (not suc and tostring(res)=="Number of requests exceeded limit") and Configuration.RetryOnRateLimit then
+    --    return handleQueue(url,assetId,placeId,ver,api_key,assetType);
+    --end
     return suc,res,errInf;
 end;
 local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
@@ -257,7 +257,7 @@ local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadS
 end;
 local mod={
     isInitialized=false,
-    _VERSION="7.7.0", --module version
+    _VERSION="8.7.0", --module version
     _DEVELOPERS={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
@@ -290,13 +290,13 @@ end;
 --[[
 Initializes the SolidModeling part of the module
 ]]
-function mod:initializeSolidModeling(fetchUrl:string, parseUrl:string)
+function mod:initializeSolidModeling(fetchUrl:string)
     if SolidModeling.isInitialized then return end;
     if fetchUrl and typeof(fetchUrl)~="string" then return end;
-    if parseUrl and typeof(parseUrl)~="string" then return end;
+    --if parseUrl and typeof(parseUrl)~="string" then return end;
     SolidModeling.isInitialized=true;
     SolidModeling.urlToFetch=fetchUrl;
-    modules.unionBuilder:initialize(parseUrl)
+    --modules.unionBuilder:initialize(parseUrl)
 end;
 --[[
 Loads model by ID <code>assetid</code> from <code>url</code> and returns a container model for it
