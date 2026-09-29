@@ -535,8 +535,11 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
     refs=refs or {};
     loadSettings=loadSettings or {};
     local instances={};
-    local hierarcy={};
+    local hierarcy={parent};
+    local depth={rbxmtree};
     local function build(base,parent,rbxmtree)
+        table.remove(hierarcy,1);
+        table.remove(depth,1);
         for i=1,#rbxmtree do
             local inst=rbxmtree[i];
             local classname=inst.ClassName;
@@ -558,7 +561,10 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
                     end;
                     refs[inst.Ref+1]=instance; -- refs are base-0
                     instances[instance]=inst;
-                    build(base,instance,inst.children);
+                    if #inst.children>0 then
+                        table.insert(hierarcy,instance)
+                        table.insert(depth,inst.children)
+                    end
                 end;
             end);
             if not suc then
@@ -566,7 +572,9 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
             end;
         end;
     end;
-    build(base,parent,rbxmtree);
+    while #hierarcy>0 do
+        build(base,hierarcy[1],depth[1]);
+    end;
     mod.buildProps(instances,refs,loadSettings);
     if loadSettings.ApplyAttributes then
         mod.buildAttr(instances,refs); --attributes are applied after properties for consistency
