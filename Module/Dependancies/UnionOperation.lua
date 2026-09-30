@@ -5,10 +5,9 @@ local Services={
     GeometryService=game:GetService("GeometryService"),
 };
 local mod={
-    _VERSION="10.0.0",
+    _VERSION="9.0.0",
     modules={
         b64=require(script.Parent.Base64), --b64
-        json=require(script.Parent.JSON), --json
         parser=require(script.Parent.RobloxFileFormat), --parser
         modelAssembler=nil, --populated at runtime
         icloud=nil, --populated at runtime

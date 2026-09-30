@@ -23,7 +23,6 @@ local Configuration={
 };
 local modules={
     modelAssembler=require(script.Dependancies.ModelAssembler),
-    json=require(script.Dependancies.JSON),
     unionBuilder=require(script.Dependancies.UnionOperation),
     modelDefuser=require(script.Dependancies.ModelDefuser),
 };
@@ -150,7 +149,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
         if response.Success then
             --print("Response size:",#response.Body);
             local ok, parsed = pcall(function()
-                return modules.json.decode(response.Body);
+                return Services.HttpService:JSONDecode(response.Body);
             end);
             if ok then
                 return parsed;
@@ -468,7 +467,7 @@ function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
                 ["Content-Type"]="application/json",
                 ["x-api-key"]=apikey,
             },
-            Body=modules.json.encode({
+            Body=Services.HttpService:JSONEncode({
                 placeId=game.PlaceId,
                 jobId=game.JobId,
                 reason=reason or "No reason provided",

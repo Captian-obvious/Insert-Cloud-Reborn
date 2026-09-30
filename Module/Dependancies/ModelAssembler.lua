@@ -247,10 +247,10 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
         return h;
     end;
     local experimental=loadSettings.ExperimentalUnions;
-    local assetId=(prop.AssetId and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string.len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
-    local childData=(prop.ChildData and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string.len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
-    local childData2=(prop.ChildData2 and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string.len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
-    local assetData=(prop.AssetData and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string.len(prop.AssetData.value)>0) and prop.AssetData.value or nil;
+    local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string.len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
+    local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string.len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
+    local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string.len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
+    local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string.len(prop.AssetData.value)>0) and prop.AssetData.value or nil;
     local typeToInit=(class_name~="NegateOperation") and class_name or "UnionOperation";
     local isIntersection=(typeToInit=="IntersectOperation");
     local part=Instance.new(typeToInit);
@@ -311,13 +311,13 @@ end;
 function createSurfaceAppearanceAsync(prop) --the workaround, only color works though so....
     local uri=Content.fromUri
     local obj=Content.fromObject
-    local propmaps={
-        c=uri(prop.ColorMap.value),
-        m=uri(prop.MetalnessMap.value),
-        n=uri(prop.NormalMap.value),
-        r=uri(prop.RoughnessMap.value),
-    };
     local suc,surf=pcall(function()
+        local propmaps={
+            c=uri(prop.ColorMap.value),
+            m=uri(prop.MetalnessMap.value),
+            n=uri(prop.NormalMap.value),
+            r=uri(prop.RoughnessMap.value),
+        };
         local sa= Services.AssetService:CreateSurfaceAppearanceAsync({
             ColorMap=propmaps.c,
             MetalnessMap=propmaps.m,
@@ -333,36 +333,43 @@ function createSurfaceAppearanceAsync(prop) --the workaround, only color works t
 end;
 function createMeshPartAsync(meshId,textureId,options)
     local obj=Instance.new("Part");
-    local cache=script:FindFirstChild("MeshPartCache") or Instance.new("Folder",script);
-    cache.Name="MeshPartCache";
     obj:SetAttribute("MeshId",meshId);
     obj:SetAttribute("TextureId",textureId);
+    local cache=script:FindFirstChild("MeshPartCache") or Instance.new("Folder",script);
+    cache.Name="MeshPartCache";
     local idVal=meshId:match("(%d+)$");
     local idNum=tonumber(idVal);
-    if idNum then
-        local cacheName="Mesh_"..tostring(idNum);
-        local findCache=cache:FindFirstChild(cacheName);
-        if findCache~=nil and findCache:IsA("MeshPart") then
-            obj:Destroy();
-            obj=findCache:Clone();
-            obj.TextureID=textureId;
-        else
-            local suc,new=pcall(function()
-                return Services.AssetService:CreateMeshPartAsync(Content.fromUri(meshId),options)
-            end);
-            if not suc then
-                warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: "..tostring(new));
-            else
-                obj:Destroy();
-                obj=new;
-                obj.TextureID=textureId;
-                local cacheObj=obj:Clone();
-                cacheObj.Parent=cache;
-                cacheObj.Name=cacheName;
-            end;
-        end;
+    local isLocal=meshId:match("^rbxasset://");
+    if not idNum and not isLocal then
+        warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: ID is not a number or local asset.")
+        return obj;
+    end;
+    local cacheName;
+    if isLocal then
+        local localfilekey,_=string.gsub(meshId,"[^%w]", "_");
+        cacheName="Mesh_"..localfilekey;
     else
-        warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: ID is not a number.")
+        cacheName="Mesh_"..tostring(idNum)
+    end;
+    local findCache=cache:FindFirstChild(cacheName);
+    if findCache~=nil and findCache:IsA("MeshPart") then
+        obj:Destroy();
+        obj=findCache:Clone();
+        obj.TextureID=textureId;
+    else
+        local suc,new=pcall(function()
+            return Services.AssetService:CreateMeshPartAsync(Content.fromUri(meshId),options)
+        end);
+        if not suc then
+            warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: "..tostring(new));
+        else
+            obj:Destroy();
+            obj=new;
+            obj.TextureID=textureId;
+            local cacheObj=obj:Clone();
+            cacheObj.Parent=cache;
+            cacheObj.Name=cacheName;
+        end;
     end;
     return obj;
 end;
@@ -390,8 +397,19 @@ local class_initializers={
         return object;
     end,
     ["MeshPart"]=function(class_name,parent,inst,prop,refs,loadSettings)
+        local fallback=Instance.new("Part");
         local midprop=prop.MeshId or prop.MeshID;
+        if not midprop then
+            warn("Failed to generate MeshPart with asset location \""..midprop.."\" due to error: MeshId/TextureId is missing.")
+            fallback.Parent=parent;
+            return fallback;
+        end;
         local meshId=midprop.value;
+        if not prop.TextureID then
+            warn("Failed to generate MeshPart with asset location \""..midprop.."\" due to error: MeshId/TextureId is missing.")
+            fallback.Parent=parent;
+            return fallback;
+        end;
         local textureId=prop.TextureID.value;
         local meshPart;
         if loadSettings.EnablePreciseMeshParts then
@@ -406,12 +424,11 @@ local class_initializers={
                 CollisionFidelity=colfidelity,
                 RenderFidelity=rendfidelity
             });
-            meshPart.Parent=parent;
+            
         else
             local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
             local OrigSize=compile_prop("Size",prop.size,refs,class_name);
-            meshPart=Instance.new("Part");
-            meshPart.Parent=parent;
+            meshPart=fallback;
             -- everything else is applied during the properties step so we just need to set up the mesh
             local mesh=Instance.new("SpecialMesh",meshPart);
             mesh.MeshType=Enum.MeshType.FileMesh;
@@ -420,6 +437,7 @@ local class_initializers={
             mesh.Scale=OrigSize/InitialSize;
             mesh:SetAttribute("initialSize",InitialSize);
         end;
+        meshPart.Parent=parent;
         return meshPart;
     end,
     ['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
@@ -543,18 +561,24 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
         for i=1,#rbxmtree do
             local inst=rbxmtree[i];
             local classname=inst.ClassName;
-            local suc,err=pcall(function()
-                if (classname~="Message" and classname~="Hint") then
-                    local instance;
-                    local classInit=class_initializers[classname];
-                    if classInit then
-                        --print_if_debug(loadSettings);
-                        instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings);
-                    else
-                        instance=Instance.new(classname);
-                        --hierarcy[instance]=parent;
-                        instance.Parent=parent;
-                    end;
+            if (classname~="Message" and classname~="Hint") then
+                local instance;
+                local classInit=class_initializers[classname];
+                if classInit then
+                    --print_if_debug(loadSettings);
+                    --local suc;
+                    --suc,instance=pcall(classInit,classname,parent,inst,inst.properties,refs,loadSettings);
+                    --if not suc then
+                    --    warn("Failed to init class: "..tostring(instance));
+                    --    instance=Instance.new(classname);
+                    --    instance.Parent=parent;
+                    --end;
+                    instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings);
+                else
+                    instance=Instance.new(classname);
+                    instance.Parent=parent;
+                end;
+                if instance then
                     if instance:IsA("BasePart") then
                         instance.Anchored=true;
                         instance.CanCollide=false;
@@ -564,11 +588,8 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
                     if #inst.children>0 then
                         table.insert(hierarcy,instance)
                         table.insert(depth,inst.children)
-                    end
+                    end;
                 end;
-            end);
-            if not suc then
-                warn("Failed to init class: "..tostring(err));
             end;
         end;
     end;
@@ -646,17 +667,19 @@ end;
 --[[ Build attributes tree --]]
 function mod.buildAttr(instances,refs)
     for obj,inst in pairs(instances) do
-        local attributes=inst.attributes or {};
-        for attrName,attr in pairs(attributes) do
-            local suc,err=pcall(function()
-                if (obj) then
-                    obj:SetAttribute(attrName,compile_prop(attrName,attr,refs,obj));
+        task.spawn(function()
+            local attributes=inst.attributes or {};
+            for attrName,attr in pairs(attributes) do
+                local suc,err=pcall(function()
+                    if (obj) then
+                        obj:SetAttribute(attrName,compile_prop(attrName,attr,refs,obj));
+                    end;
+                end);
+                if not suc and mod.debug_mode then
+                    warn("Failed to apply attribute "..attrName.." to instance: "..tostring(err));
                 end;
-            end);
-            if not suc and mod.debug_mode then
-                warn("Failed to apply attribute "..attrName.." to instance: "..tostring(err));
             end;
-        end;
+        end);
     end;
 end;
 --[[ Builds asset from its tree and related data --]]
