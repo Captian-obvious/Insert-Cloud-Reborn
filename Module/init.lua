@@ -256,7 +256,7 @@ local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadS
 end;
 local mod={
     isInitialized=false,
-    _VERSION="8.7.0", --module version
+    _VERSION="8.8.0", --module version
     _DEVELOPERS={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, LXM Modifications, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
