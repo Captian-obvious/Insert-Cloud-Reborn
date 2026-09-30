@@ -71,7 +71,7 @@ There is also support for legacy authentication but this is not recommended as i
 1. Require the module in your Roblox script.
 2. Use the `LoadAssetAsync` function to load an asset by its Asset ID.
 ```lua
-local InsertCloud = require(path.to.InsertCloud.Module)
+local InsertCloud = require(73267977281078)
 local assetId = 123456789 -- Replace with your asset ID
 local parentInstance = workspace -- Replace with the desired parent instance
 local buildParent=game:GetService("ReplicatedStorage") -- Optional: Replace with the desired build parent instance
