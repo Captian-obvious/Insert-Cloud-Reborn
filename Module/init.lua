@@ -261,7 +261,8 @@ local mod={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
         ["vxnquish (@TNA_Cup)"]="Collaborator (helped with a few things on the server side)", -- Collaborator
-        ["god (@servertechnology)"]="the idea man" -- idea man
+        ["god (@servertechnology)"]="the idea man", -- idea man
+        ["metatablecat"]="LXM original code"
     },
     SolidModeling={
         isInitialized=false, --backwards compatible, since the primary initialize for solidModeling already checks if its initialized and does nothing if it is
