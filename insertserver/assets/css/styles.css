@@ -11,24 +11,33 @@ body {
     font-weight: normal;
     font-style: normal;
 }
-div.rounded_center {
-    padding: 50px;
-    background: rgba(255, 255, 255, 0.8);
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    border-radius: 15px;
-    margin: 50px auto;
-    width: 80%;
-}
 div.rounded {
     padding: 50px;
     border-radius: 15px;
 }
+div.rounded40 {
+    padding: 50px;
+    border-radius: 40px;
+}
+div.rounded60 {
+    padding: 50px;
+    border-radius: 60px;
+}
+div.rounded80 {
+    padding: 50px;
+    border-radius: 80px;
+}
 div.displayblock {
     padding: 50px;
     background: rgba(255, 255, 255, 0.8);
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 8px 12px rgba(0, 0, 0, 0.1);
 }
-
+div.faded_block {
+    padding: 50px;
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: 0px 8px 12px rgba(0, 0, 0, 0.1);
+    opacity: 0.4;
+}
 div.center {
     padding:50px;
     margin:50px auto;
@@ -94,6 +103,18 @@ p.med_text {
 p.large_text {
     font-size: 20px;
 }
+.just_center {
+    justify-self: center;
+    text-align: center;
+}
+.just_left {
+    justify-self: left;
+    text-align: left;
+}
+.just_right {
+    justify-self: right;
+    text-align: right;
+}
 h1.title {
     color: #002679;
     font-size: 2.5em;
@@ -110,6 +131,9 @@ h3.subtitle {
 }
 sub.custom_dark {
     color:#195466
+}
+li.scaling_li {
+    font-size: 14px;
 }
 code.custom_code_dark {
     background-color: #a9c4ff;
@@ -152,4 +176,49 @@ input[type=submit]:hover {
     border-radius: 5px;
     background-color: #f2f2f2;
     padding: 20px;
+}
+
+@media only screen and (max-width: 768px){
+    p.large_text {
+        font-size: 11px;
+    }
+    p.med_text {
+        font-size: 9px;
+    }
+    p.small_text {
+        font-size: 6px;
+    }
+    .topnav a{
+        font-size: 12px;
+        padding: 7px 9px;
+    }
+    img.logo {
+        float: left;
+        padding: 5px 10px;
+        height: 20px;
+    }
+    h1.title {
+        font-size: 1.5em;
+    }
+    h2.title {
+        font-size: 1.2em;
+    }
+    h3.title {
+        font-size: .8em;
+    }
+    h1.subtitle {
+        font-size: .6em;
+    }
+    h2.subtitle {
+        font-size: .55em;
+    }
+    h3.subtitle {
+        font-size: .4em;
+    }
+    sub.custom_dark {
+        font-size: .2em;
+    }
+    li.scaling_li {
+        font-size: 8px;
+    }
 }
