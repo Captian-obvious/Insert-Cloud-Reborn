@@ -4,3 +4,5 @@
 
 This thing basically follows this diagram here to a tea:
 ![IMG](/diagram_but_better.png)
+
+As a sidenote, it supports various assets and parses them into standardized formats.
