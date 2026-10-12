@@ -413,7 +413,7 @@ local class_initializers={
         end;
         local meshId=midprop.value;
         if not tidprop then
-            warn("Failed to generate MeshPart with asset location \""..tidprop.."\" due to error: MeshId/TextureId is missing.")
+            warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: MeshId/TextureId is missing.")
             fallback.Parent=parent;
             return fallback;
         end;
