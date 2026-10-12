@@ -373,7 +373,13 @@ function createMeshPartAsync(meshId,textureId,options)
     end;
     return obj;
 end;
-
+local blocked_classes={
+    "DialogChoice",
+    "Dialog",
+    "Message",
+    "Hint",
+    "SkateboardPlatform"
+};
 local class_initializers={
     ["Script"]=function(class_name,parent,inst,prop,refs,loadSettings)
         local object=Templates:FindFirstChild(sandbox_type..class_name):Clone();
@@ -398,15 +404,16 @@ local class_initializers={
     end,
     ["MeshPart"]=function(class_name,parent,inst,prop,refs,loadSettings)
         local fallback=Instance.new("Part");
-        local midprop=prop.MeshId or prop.MeshID;
+        local midprop=prop.MeshId or prop.MeshID or prop.MeshContent;
+        local tidprop=prop.TextureID or prop.TextureId or prop.TextureContent;
         if not midprop then
             warn("Failed to generate MeshPart with asset location \""..midprop.."\" due to error: MeshId/TextureId is missing.")
             fallback.Parent=parent;
             return fallback;
         end;
         local meshId=midprop.value;
-        if not prop.TextureID then
-            warn("Failed to generate MeshPart with asset location \""..midprop.."\" due to error: MeshId/TextureId is missing.")
+        if not tidprop then
+            warn("Failed to generate MeshPart with asset location \""..tidprop.."\" due to error: MeshId/TextureId is missing.")
             fallback.Parent=parent;
             return fallback;
         end;
@@ -424,7 +431,7 @@ local class_initializers={
                 CollisionFidelity=colfidelity,
                 RenderFidelity=rendfidelity
             });
-            
+
         else
             local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
             local OrigSize=compile_prop("Size",prop.size,refs,class_name);
@@ -561,18 +568,11 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
         for i=1,#rbxmtree do
             local inst=rbxmtree[i];
             local classname=inst.ClassName;
-            if (classname~="Message" and classname~="Hint") then
+            if (not table.find(blocked_classes,inst.ClassName)) then
                 local instance;
                 local classInit=class_initializers[classname];
                 if classInit then
                     --print_if_debug(loadSettings);
-                    --local suc;
-                    --suc,instance=pcall(classInit,classname,parent,inst,inst.properties,refs,loadSettings);
-                    --if not suc then
-                    --    warn("Failed to init class: "..tostring(instance));
-                    --    instance=Instance.new(classname);
-                    --    instance.Parent=parent;
-                    --end;
                     instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings);
                 else
                     instance=Instance.new(classname);
