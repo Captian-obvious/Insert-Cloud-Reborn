@@ -407,17 +407,15 @@ local class_initializers={
         local midprop=prop.MeshId or prop.MeshID or prop.MeshContent;
         local tidprop=prop.TextureID or prop.TextureId or prop.TextureContent;
         if not midprop then
-            warn("Failed to generate MeshPart with asset location \""..midprop.."\" due to error: MeshId/TextureId is missing.")
+            warn("Failed to generate MeshPart with asset location \""..tostring(midprop).."\" due to error: MeshId is missing.")
             fallback.Parent=parent;
             return fallback;
         end;
         local meshId=midprop.value;
-        if not tidprop then
-            warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: MeshId/TextureId is missing.")
-            fallback.Parent=parent;
-            return fallback;
+        local textureId="";
+        if tidprop then
+            textureId=tidprop.value;
         end;
-        local textureId=prop.TextureID.value;
         local meshPart;
         if loadSettings.EnablePreciseMeshParts then
             local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
