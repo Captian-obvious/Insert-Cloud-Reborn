@@ -71,14 +71,13 @@ There is also support for legacy authentication but this is not recommended as i
 1. Require the module in your Roblox script.
 2. Use the `LoadAssetAsync` function to load an asset by its Asset ID.
 ```lua
-local InsertCloud = require(73267977281078)
-local assetId = 123456789 -- Replace with your asset ID
-local parentInstance = workspace -- Replace with the desired parent instance
-local buildParent=game:GetService("ReplicatedStorage") -- Optional: Replace with the desired build parent instance
-local url="https://your-webservice-url.com/api/v3/asset" -- Replace with your webservice URL, default path for asset loading is /api/v3/asset/<assetId>?placeId=<placeId>
+local InsertCloud = require(73267977281078);
+local assetId = 123456789; -- Replace with your asset ID
+local parentInstance = workspace; -- Replace with the desired parent instance
+local buildParent=game:GetService("ReplicatedStorage"); -- Optional: Replace with the desired build parent instance
+local url="https://your-webservice-url.com/api/v3/asset"; -- Replace with your webservice URL, default path for asset loading is /api/v3/asset/<assetId>?placeId=<placeId>
 local settingstable=InsertCloud:GetDefaultSettings(); --will default to InsertCloud:GetDefaultSettings() if left as nil
-InsertCloud:initialize();
-InsertCloud:initializeSolidModeling(url)
+InsertCloud:SetSolidModelingFetchUrl(url);
 local asset,err = InsertCloud:LoadAssetAsync(url,nil,assetId,settingstable,buildParent); --Recommended to build the asset in a service like ReplicatedStorage first
 if err then
     print("Error info was returned");
