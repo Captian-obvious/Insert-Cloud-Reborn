@@ -290,7 +290,7 @@ end;
 --[[
 Initializes the SolidModeling part of the module
 ]]
-function initializeSolidModeling(fetchUrl:string)
+function initializeSolidModeling(fetchUrl:string|Secret)
     if SolidModeling.isInitialized then return end;
     if fetchUrl and typeof(fetchUrl)~="string" then return end;
     --if parseUrl and typeof(parseUrl)~="string" then return end;
@@ -300,7 +300,7 @@ function initializeSolidModeling(fetchUrl:string)
 end;
 
 initialize();
-function mod:SetSolidModelingFetchUrl(url:string)
+function mod:SetSolidModelingFetchUrl(url:string|Secret)
     SolidModeling.urlToFetch=url;
     if not SolidModeling.isInitialized then
         initializeSolidModeling(url);
@@ -315,6 +315,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
     if self.isInitialized then
+        initializeSolidModeling(url);
         local theCache=Services.ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",Services.ReplicatedStorage);
         theCache.Name="Cache";
         local modelContain=nil;
