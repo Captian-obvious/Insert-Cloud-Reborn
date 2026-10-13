@@ -314,82 +314,74 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if type(url) ~= "string" and typeof(url)~="Secret" then return error("URL Parameter is invalid, must be a valid string") end;
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
-    if self.isInitialized then
-        initializeSolidModeling(url);
-        local theCache=Services.ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",Services.ReplicatedStorage);
-        theCache.Name="Cache";
-        local modelContain=nil;
-        local assetid_string=tostring(assetid);
-        local ErrorInfo=nil;
-        logMsg({
-            MessageType="info",
-            MessageText="Loading asset "..assetid_string
-        });
-        if Configuration.Caching then
-            local cache=theCache:FindFirstChild(assetid_string);
-            if cache then
-                modelContain=cache:Clone();
-                modelContain.Parent=parent;
-                logMsg({
-                    MessageType="info",
-                    MessageText="Loaded asset "..assetid_string.." from cache successfully!"
-                });
-            else
-                modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
-                if modelContain then
-                    local newCache=modelContain:Clone();
-                    newCache.Parent=theCache;
-                end;
-            end;
+    if not self.isInitialized then initialize(); end;
+    if not SolidModeling.isInitialized then initializeSolidModeling(url); end;
+    local theCache=Services.ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",Services.ReplicatedStorage);
+    theCache.Name="Cache";
+    local modelContain=nil;
+    local assetid_string=tostring(assetid);
+    local ErrorInfo=nil;
+    logMsg({
+        MessageType="info",
+        MessageText="Loading asset "..assetid_string
+    });
+    if Configuration.Caching then
+        local cache=theCache:FindFirstChild(assetid_string);
+        if cache then
+            modelContain=cache:Clone();
+            modelContain.Parent=parent;
+            logMsg({
+                MessageType="info",
+                MessageText="Loaded asset "..assetid_string.." from cache successfully!"
+            });
         else
             modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
+            if modelContain then
+                local newCache=modelContain:Clone();
+                newCache.Parent=theCache;
+            end;
         end;
-        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or getDefaultSettings());
-        return modelContain,ErrorInfo;
     else
-        logMsg({
-            MessageType="error",
-            MessageText="You must initialize the module before calling the LoadAsset method"
-        });
-        return nil;
+        modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
     end;
+    PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or getDefaultSettings());
+    return modelContain,ErrorInfo;
 end;
 --[[ 
 Loads a SolidModel asset and returns its ChildData property (used internally to make UnionOperations work)
 ]]
 function mod:LoadSolidModel(assetid:number)
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
-    if SolidModeling.isInitialized then
-        local assetid_string=tostring(assetid);
-        local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,game.PlaceId,nil,nil,"SolidModel")
-        if suc then
-            if res~=nil then
-                print_if_debug(res);
-                if res.tree then
-                    local instance=res.tree[1];
-                    if instance then
-                        return instance.properties.ChildData.value;
-                    end;
-                    return nil;
+    if not SolidModeling.isInitialized then
+        logMsg({
+            MessageType="error",
+            MessageText="You must initialize the solid model part of module before calling the loadSolidModel method"
+        });
+        return nil;
+    end;
+    local assetid_string=tostring(assetid);
+    local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,game.PlaceId,nil,nil,"SolidModel")
+    if suc then
+        if res~=nil then
+            print_if_debug(res);
+            if res.tree then
+                local instance=res.tree[1];
+                if instance then
+                    return instance.properties.ChildData.value;
                 end;
-            else
-                logMsg({
-                    MessageType="error",
-                    MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
-                });
                 return nil;
             end;
         else
             logMsg({
                 MessageType="error",
-                MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
+                MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
             });
             return nil;
         end;
     else
         logMsg({
             MessageType="error",
-            MessageText="You must initialize the solid model part of module before calling the loadSolidModel method"
+            MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
         });
         return nil;
     end;
