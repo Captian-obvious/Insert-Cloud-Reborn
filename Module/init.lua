@@ -256,9 +256,9 @@ local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadS
 end;
 local mod={
     isInitialized=false,
-    _VERSION="8.8.0", --module version
+    _VERSION="8.9.0", --module version
     _DEVELOPERS={
-        ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, LXM Modifications, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
+        ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, LXM modifications, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
         ["vxnquish (@TNA_Cup)"]="Collaborator (helped with a few things on the server side)", -- Collaborator
         ["god (@servertechnology)"]="the idea man", -- idea man
@@ -270,10 +270,10 @@ local mod={
 };
 print("Insert Cloud v"..mod._VERSION.." by Superduperdev2 (@Superduperbloxer2) loaded successfully!");
 --[[ Initializes the module ]]
-function mod:initialize()
-    if self.isInitialized then return end;
-    self.isInitialized=true;
-    modules.modelAssembler:initialize(Configuration,self);
+function initialize()
+    if mod.isInitialized then return end;
+    mod.isInitialized=true;
+    modules.modelAssembler:initialize(Configuration,mod);
     local replicatedObjects=script:WaitForChild("ReplicatedStorage"):Clone();
     replicatedObjects.Parent=Services.ReplicatedStorage;
     for i,v in pairs(replicatedObjects:GetChildren()) do
@@ -290,7 +290,7 @@ end;
 --[[
 Initializes the SolidModeling part of the module
 ]]
-function mod:initializeSolidModeling(fetchUrl:string)
+function initializeSolidModeling(fetchUrl:string)
     if SolidModeling.isInitialized then return end;
     if fetchUrl and typeof(fetchUrl)~="string" then return end;
     --if parseUrl and typeof(parseUrl)~="string" then return end;
@@ -298,6 +298,15 @@ function mod:initializeSolidModeling(fetchUrl:string)
     SolidModeling.urlToFetch=fetchUrl;
     --modules.unionBuilder:initialize(parseUrl)
 end;
+
+initialize();
+function mod:SetSolidModelingFetchUrl(url:string)
+    SolidModeling.urlToFetch=url;
+    if not SolidModeling.isInitialized then
+        initializeSolidModeling(url);
+    end;
+end;
+
 --[[
 Loads model by ID <code>assetid</code> from <code>url</code> and returns a container model for it
 ]]
@@ -491,6 +500,20 @@ function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
         return false;
     end;
     return res;
+end;
+--[[
+Deprecated, Module initializes itself now
+]]
+@deprecated
+function mod:initialize()
+    return initialize();
+end;
+--[[
+Deprecated, SolidModeling initializes itself now and lets you set the fetchUrl with SetSolidModelingFetchUrl()
+]]
+@deprecated
+function mod:initializeSolidModeling(fetchUrl:string)
+    return initializeSolidModeling(fetchUrl);
 end;
 --[[
 Deprecated varient of InsertCloud:LoadAssetAsync()
