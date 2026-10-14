@@ -20,7 +20,8 @@ local contentObj=Content.fromObject;
 local table_find=table.find;
 function resolveEnumInteger(enum:Enum, int:number)
     local vals=enum:GetEnumItems();
-    for _,e in vals do
+    for i=1,#vals do
+        local e=vals[i];
         if e.Value==int then
             return e;
         end;
@@ -74,27 +75,19 @@ local propertyTypes={
     end,
     ["enum"]=function(typed,value,refs,prop_instance)
         if typed~="enum" then print("Not an enum") return nil; end;
-        local actualValue=nil;
-        local function inferEnumType(propName,prop_instance)
-            local success, value = pcall(function() return prop_instance[propName]; end);
-            if success and typeof(value) == "EnumItem" then
-                return Enum[tostring(value.EnumType)];
-            else
-                print(value);
-            end;
-            return nil;
-        end;
-        local suc,enumItem=pcall(inferEnumType,prop_instance.propName,prop_instance.classInstance);
-        if not suc then
-            print("failed to resolve instance");
+        local enumItem=nil;
+        local propName=prop_instance.propName;
+        local classInstance=prop_instance.classInstance;
+        if not classInstance then return nil; end;
+        local success, defaultVal = pcall(function() return classInstance[propName]; end);
+        if success and typeof(defaultVal) == "EnumItem" then
+            enumItem=Enum[tostring(defaultVal.EnumType)];
         end;
         if not enumItem then
-            warn("Enum inference failed for property:", prop_instance.propName, "on", tostring(prop_instance.classInstance));
+            warn("Enum inference failed for property:", propName, "on", tostring(classInstance));
+            return nil;
         end;
-        if enumItem then
-            actualValue=resolveEnumInteger(enumItem,value);
-        end;
-        return actualValue;
+        return resolveEnumInteger(enumItem,value);
     end,
     ["cframe"]=function(typed,value,refs)
         if typed~="cframe" then return CFrame.new(); end;
