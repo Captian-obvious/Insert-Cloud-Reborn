@@ -25,6 +25,8 @@ local HttpService=game:GetService("HttpService");
 local ReplicatedStorage=game:GetService("ReplicatedStorage");
 local modelAssembler=require(script.Dependancies.ModelAssembler);
 local modelDefuser=require(script.Dependancies.ModelDefuser);
+local serverplaceid=game.PlaceId; --server place id
+local insertCloudCache={};
 local SolidModeling={
     isInitialized=false,
     urlToFetch=nil,
@@ -91,10 +93,10 @@ end;
 local function getDefaultSettings()
     return Configuration.DefaultSettings;
 end;
-local function handleQueue(url,assetId,placeId,ver,api_key,assetType)
+local function handleQueue(url,assetId,ver,api_key,assetType)
     logMsg({
         MessageType="warn",
-        MessageText="HTTP 429 (Too Many Requests) for asset " .. assetId .. " (Place ID: " .. placeId .. ")."
+        MessageText="HTTP 429 (Too Many Requests) for asset " .. assetId .. " (Place ID: " .. serverplaceid .. ")."
     });
     local queueEntry:QueueEntry={
         IsRetry=true,
@@ -102,27 +104,27 @@ local function handleQueue(url,assetId,placeId,ver,api_key,assetType)
         Fire=Instance.new("BindableEvent");
         AssetId=assetId,
         Send=function()
-            print("Retrying asset " .. assetId .. " (Place ID: " .. placeId .. ") in queue.")
+            print("Retrying asset " .. assetId .. " (Place ID: " .. serverplaceid .. ") in queue.")
         end,
     };
     table.insert(queue,queueEntry);
     queueEntry.Fire.Event:Wait();
     local suc,res;
-    return requestORQueue(url,assetId,placeId,ver,api_key,assetType); --try again
+    return requestORQueue(url,assetId,ver,api_key,assetType); --try again
 end;
-function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
+function requestORQueue(url,assetId,ver,api_key,assetType)
     local full_url;
     if typeof(url)=="Secret" then
-        local appended="/"..assetId.."?placeId="..placeId;
+        local appended="/"..assetId.."?placeId="..serverplaceid;
         if ver then
             appended=appended.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
         end;
         if assetType then
-            appended=appended.."&type="..assetType
+            appended=appended.."&type="..assetType;
         end
-        full_url=url:AddSuffix(appended)
+        full_url=url:AddSuffix(appended);
     else
-        full_url=url.."/"..assetId.."?placeId="..placeId;
+        full_url=url.."/"..assetId.."?placeId="..serverplaceid;
         if ver then
             full_url=full_url.."&version="..tostring(ver); -- insert logs so we can load the same exact model (moderation purposes)
         end;
@@ -158,7 +160,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
             local statusCode=response.StatusCode;
             local statusMessage=response.StatusMessage;
             if (statusCode==429 and #queue<=queueSize) and Configuration.RetryOnRateLimit then
-                suc,res,errInf=handleQueue(url,assetId,placeId,ver,api_key,assetType)
+                suc,res,errInf=handleQueue(url,assetId,ver,api_key,assetType)
                 return (suc) and res or nil;
             else
                 errInf=logMsg({
@@ -184,7 +186,7 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
         modelData={},
     };
     local assetid_string=tostring(assetid);
-    local suc,res,errInf=requestORQueue(url,assetid,game.PlaceId,ver,api_key);
+    local suc,res,errInf=requestORQueue(url,assetid,ver,api_key);
     if suc then
         if res~=nil then
             data.modelData=res;
@@ -309,8 +311,6 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
     if not self.isInitialized then initialize(); end;
     if not SolidModeling.isInitialized then initializeSolidModeling(url); end;
-    local theCache=ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",ReplicatedStorage);
-    theCache.Name="Cache";
     local modelContain=nil;
     local assetid_string=tostring(assetid);
     local ErrorInfo=nil;
@@ -319,7 +319,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
         MessageText="Loading asset "..assetid_string
     });
     if Configuration.Caching then
-        local cache=theCache:FindFirstChild(assetid_string);
+        local cache=insertCloudCache[assetid_string];
         if cache then
             modelContain=cache:Clone();
             modelContain.Parent=parent;
@@ -330,8 +330,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
         else
             modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
             if modelContain then
-                local newCache=modelContain:Clone();
-                newCache.Parent=theCache;
+                insertCloudCache[assetid_string]=modelContain:Clone();
             end;
         end;
     else
@@ -353,28 +352,27 @@ function mod:LoadSolidModel(assetid:number)
         return nil;
     end;
     local assetid_string=tostring(assetid);
-    local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,game.PlaceId,nil,nil,"SolidModel")
-    if suc then
-        if res~=nil then
-            print_if_debug(res);
-            if res.tree then
-                local instance=res.tree[1];
-                if instance then
-                    return instance.properties.ChildData.value;
-                end;
-                return nil;
+    local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,nil,nil,"SolidModel")
+    if not suc then
+        logMsg({
+            MessageType="error",
+            MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
+        });
+        return nil;
+    end;
+    if res~=nil then
+        print_if_debug(res);
+        if res.tree then
+            local instance=res.tree[1];
+            if instance then
+                return instance.properties.ChildData.value;
             end;
-        else
-            logMsg({
-                MessageType="error",
-                MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
-            });
             return nil;
         end;
     else
         logMsg({
             MessageType="error",
-            MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
+            MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
         });
         return nil;
     end;
@@ -386,6 +384,10 @@ function mod:GetDefaultSettings()
     return getDefaultSettings();
 end;
 
+--[[ Clears the cache ]]
+function mod:ClearCache()
+    insertCloudCache={};
+end;
 --[[ 
 Fixes model for completion of inserted object, insert tool also calls this for security 
 ]]
@@ -465,7 +467,7 @@ function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
                 ["x-api-key"]=apikey,
             },
             Body=HttpService:JSONEncode({
-                placeId=game.PlaceId,
+                placeId=serverplaceid,
                 jobId=game.JobId,
                 reason=reason or "No reason provided",
             }),
