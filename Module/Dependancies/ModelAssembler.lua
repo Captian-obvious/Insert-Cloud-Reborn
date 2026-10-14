@@ -2,6 +2,7 @@ local Services={
     ReplicatedStorage=game:GetService("ReplicatedStorage"),
     InsertService=game:GetService("InsertService"),
     AssetService=game:GetService("AssetService"),
+    ReflectionService=game:GetService("ReflectionService"),
 };
 local modules={
     sstrParse=require(script.Parent.SSTRParse), --SSTR is not stored as a default string, it needs some additional processing
@@ -18,7 +19,18 @@ local mod={
 local contentUri=Content.fromUri;
 local contentObj=Content.fromObject;
 local table_find=table.find;
-local resolvedEnumCache={};
+local table_insert=table.insert;
+local string_upper=string.upper;
+local string_sub=string.sub;
+local string_gsub=string.gsub;
+local string_split=string.split;
+local string_format=string.format;
+local string_gmatch=string.gmatch;
+local string_char=string.char;
+local table_clone=table.clone;
+local b64_decode=modules.b64.decode;
+local b64_encode=modules.b64.encode;
+local union=modules.unionBuilder;
 function resolveEnumInteger(enum:Enum, int:number)
     local vals=enum:GetEnumItems();
     for i=1,#vals do
@@ -32,6 +44,7 @@ function resolveEnumInteger(enum:Enum, int:number)
     end;
     return vals[1];
 end;
+
 --[[ PrintDebug --]]
 function print_if_debug(...)
     if mod.debug_mode then
@@ -42,13 +55,15 @@ local templateCache = {};
 for _, child in ipairs(Templates:GetChildren()) do
     templateCache[child.Name] = child;
 end;
+local meshCache=script:FindFirstChild("MeshPartCache") or Instance.new("Folder",script);
+meshCache.Name="MeshPartCache";
 local propertyTypes={
     -- things that need additonal parsing go here
     ["string"]=function(typed,value,refs,encoded)
         if encoded==nil then encoded=false end;
         if typed=="string" then
             if encoded then
-                return modules.b64.decode(value);
+                return b64_decode(value);
             else
                 return value;
             end;
@@ -69,61 +84,58 @@ local propertyTypes={
     end,
     ["sharedstr"]=function(typed,value,refs)
         if typed=="sharedstr" then
-            return modules.b64.decode(value);
+            return b64_decode(value);
         else
             return "";
         end;
     end,
     ["enum"]=function(typed,value,refs,prop_instance)
         if typed~="enum" then print("Not an enum") return nil; end;
-        local enumItem=nil;
         local propName=prop_instance.propName;
         local classInstance=prop_instance.classInstance;
         if not classInstance then return nil; end;
         local success, defaultVal = pcall(function() return classInstance[propName]; end);
         if success and typeof(defaultVal) == "EnumItem" then
-            enumItem=Enum[tostring(defaultVal.EnumType)];
+            return resolveEnumInteger(defaultVal.EnumType,value);
         end;
-        if not enumItem then
-            warn("Enum inference failed for property:", propName, "on", tostring(classInstance));
-            return nil;
-        end;
-        return resolveEnumInteger(enumItem,value);
+        warn("Enum inference failed for property:", propName, "on", tostring(classInstance));
+        return nil;
     end,
     ["cframe"]=function(typed,value,refs)
         if typed~="cframe" then return CFrame.new(); end;
         local pos=value.position.vector3 or {0,0,0};
         local rot=value.rotation;
         if pos and rot and #rot==9 then
-            return CFrame.new(pos[1],pos[2],pos[3],rot[1],rot[2],rot[3],rot[4],rot[5],rot[6],rot[7],rot[8],rot[9]);
+            local x,y,z=unpack(pos);
+            return CFrame.new(x,y,z,unpack(rot));
         elseif pos then
-            return CFrame.new(Vector3.new(pos[1],pos[2],pos[3]));
+            return CFrame.new(Vector3.new(unpack(pos)));
         end;
         return CFrame.new();
     end,
     ["qcframe"]=function(typed,value,refs)
         if typed~="qcframe" then return CFrame.new(); end;
         if not value or typeof(value)~="table" or #value~=7 then return CFrame.new(); end;
-        return CFrame.new(value[1],value[2],value[3],value[4],value[5],value[6],value[7]);
+        return CFrame.new(unpack(value));
     end,
     ["vector3int16"]=function(typed,value,refs)
         if typed~="vector3int16" then return Vector3.new() end;
         if value and typeof(value)=="table" and #value==3 then
-            return Vector3.new(value[1],value[2],value[3]);
+            return Vector3.new(unpack(value));
         end;
         return Vector3.new(); 
     end,
     ["vector3"]=function(typed,value,refs)
         if typed~="vector3" then return Vector3.new() end;
         if value and typeof(value)=="table" and #value==3 then
-            return Vector3.new(value[1],value[2],value[3]);
+            return Vector3.new(unpack(value));
         end;
         return Vector3.new(); 
     end,
     ["vector2"]=function(typed,value,refs)
         if typed~="vector2" then return Vector2.new() end;
         if value and typeof(value)=="table" and #value==2 then
-            return Vector2.new(value[1],value[2]);
+            return Vector2.new(unpack(value));
         end;
         return Vector2.new(); 
     end,
@@ -132,7 +144,7 @@ local propertyTypes={
         if value and typeof(value)=="table" and value.scale and value.offset then
             return UDim.new(value.scale,value.offset)
         elseif value and typeof(value)=="table" and #value==2 then --backwards compatibility to python parser
-            return UDim.new(value[1],value[2]);
+            return UDim.new(unpack(value));
         end;
         return UDim.new();
     end,
@@ -170,7 +182,7 @@ local propertyTypes={
             for _,kp in pairs(value) do
                 local nskp=kp.nskp;
                 if nskp and typeof(nskp)=="table" and #nskp==3 then
-                    table.insert(keypoints,NumberSequenceKeypoint.new(nskp[1],nskp[2],nskp[3]))
+                    table_insert(keypoints,NumberSequenceKeypoint.new(nskp[1],nskp[2],nskp[3]))
                 end;
             end;
             return NumberSequence.new(keypoints);
@@ -184,12 +196,12 @@ local propertyTypes={
             for _,kp in pairs(value) do
                 local cskp=kp.cskp;
                 if cskp and typeof(cskp)=="table" then
-                    table.insert(keypoints,ColorSequenceKeypoint.new(cskp.t,Color3.new(cskp.color3[1],cskp.color3[2],cskp.color3[3])));
+                    table_insert(keypoints,ColorSequenceKeypoint.new(cskp.t,Color3.new(cskp.color3[1],cskp.color3[2],cskp.color3[3])));
                 end;
             end;
             if #keypoints==0 then
-                table.insert(keypoints,ColorSequenceKeypoint.new(0,Color3.new(1,1,1)));
-                table.insert(keypoints,ColorSequenceKeypoint.new(1,Color3.new(1,1,1)));
+                table_insert(keypoints,ColorSequenceKeypoint.new(0,Color3.new(1,1,1)));
+                table_insert(keypoints,ColorSequenceKeypoint.new(1,Color3.new(1,1,1)));
             end;
             return ColorSequence.new(keypoints);
         end;
@@ -198,21 +210,21 @@ local propertyTypes={
     ["rgbc3"]=function(typed,value,refs)
         if typed~="rgbc3" then return Color3.new() end;
         if value and typeof(value)=="table" and #value==3 then
-            return Color3.fromRGB(value[1],value[2],value[3]);
+            return Color3.fromRGB(unpack(value));
         end;
         return Color3.new();
     end,
     ["color3"]=function(typed,value,refs)
         if typed~="color3" then return Color3.new() end;
         if value and typeof(value)=="table" and #value==3 then
-            return Color3.new(value[1],value[2],value[3]);
+            return Color3.new(unpack(value));
         end;
         return Color3.new();
     end,
     ["physprops"]=function(typed,value,refs)
         if typed~="physprops" then return nil end;
         if value and typeof(value)=="table" and #value==6 then
-            return PhysicalProperties.new(value[1],value[2],value[3],value[4],value[5],value[6]); --no breakage from format changes GRRRR
+            return PhysicalProperties.new(unpack(value)); --no breakage from format changes GRRRR
         end;
         return nil;
     end,
@@ -240,7 +252,31 @@ local propertyTypes={
         return refs[value+1]; --We add 1 to correct the offset generated by the parser
     end,
 };
-function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
+local function compile_prop(prop,v,refs,class)
+    local value=v.value;
+    local typed=v.type;
+    local compile=propertyTypes[typed];
+    if compile then
+        local new=nil;
+        if typed=="enum" then
+            new=compile(typed,value,refs,{propName=prop,classInstance=class});
+        elseif typed=="string" then
+            new=compile(typed,value,refs,v.enc);
+        elseif typed=="content" then
+            new=compile(typed,value,refs,v.ctyp);
+        else
+            new=compile(typed,value,refs);
+        end;
+        return new;
+    else
+        if value~=nil then
+            return value;
+        else
+            return nil;
+        end;
+    end;
+end;
+local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
     if loadSettings.DisableSolidModeling then
         -- fallback to old behavior (js make the instance)
         local h=Instance.new(class_name);
@@ -269,13 +305,18 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
         SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
     };
     local unionWorldCFrame=compile_prop("CFrame",prop.CFrame,refs,part);
-    local function readChildData(data)
-        return pcall(function()
-            return (experimental) and modules.unionBuilder:applyChildDataNew(data,unionWorldCFrame,options,isIntersection) or modules.unionBuilder:applyChildData(data,unionWorldCFrame,options,isIntersection);
+    local suc,model;
+    if assetId then
+        suc,model=pcall(union.applyAssetId,union,assetId,unionWorldCFrame,options,isIntersection,experimental);
+    elseif childData~=nil or childData2~=nil then
+        local data=(childData2~=nil) and childData2 or childData;
+        suc,model=pcall(function()
+            return (experimental) and union:applyChildDataNew(data,unionWorldCFrame,options,isIntersection) or union:applyChildData(data,unionWorldCFrame,options,isIntersection);
         end);
+    elseif assetData then
+        suc,model=pcall(union.applyAssetData,union,assetData,unionWorldCFrame,options,isIntersection,experimental);
     end;
-    local function FinalizePart(part,model)
-        if model==nil then return end;
+    if suc and model~=nil then
         if model.ClassName=="PartOperation" then
             part.Parent=parent;
             part:SubstituteGeometry(model);
@@ -285,31 +326,13 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
             part=model;
             part.Parent=parent;
         end;
-        return part;
     end;
-    local suc,model;
-    if assetId then
-        suc,model=pcall(function()
-            return modules.unionBuilder:applyAssetId(assetId,unionWorldCFrame,options,isIntersection,experimental);
-        end);
-    elseif childData then
-        suc,model=readChildData(childData)
-    elseif childData2 then
-        suc,model=readChildData(childData2);
-    elseif assetData then
-        suc,model=pcall(function()
-            return modules.unionBuilder:applyAssetData(assetData,unionWorldCFrame,options,isIntersection,experimental);
-        end);
-    end;
-    if suc and model~=nil then
-        part=FinalizePart(part,model);
-    end;
-    if (class_name=="NegateOperation") or (inst.tags and table.find(inst.tags,"rbxNegated")) then
+    if (class_name=="NegateOperation") or (inst.tags and table_find(inst.tags,"rbxNegated")) then
         part:SetAttribute("IsNegateOperation",true);
     end;
     return part;
 end;
-function createSurfaceAppearanceAsync(prop) --the workaround, only color works though so....
+local function createSurfaceAppearanceAsync(prop) --the workaround, only color works though so....
     local suc,surf=pcall(function()
         local propmaps={
             c=contentUri(prop.ColorMap.value),
@@ -330,12 +353,10 @@ function createSurfaceAppearanceAsync(prop) --the workaround, only color works t
     end;
     return (suc) and surf or Instance.new("SurfaceAppearance");
 end;
-function createMeshPartAsync(meshId,textureId,options)
+local function createMeshPartAsync(meshId,textureId,options)
     local obj=Instance.new("Part");
     obj:SetAttribute("MeshId",meshId);
     obj:SetAttribute("TextureId",textureId);
-    local cache=script:FindFirstChild("MeshPartCache") or Instance.new("Folder",script);
-    cache.Name="MeshPartCache";
     local idVal=meshId:match("(%d+)$");
     local idNum=tonumber(idVal);
     local isLocal=meshId:match("^rbxasset://");
@@ -345,12 +366,12 @@ function createMeshPartAsync(meshId,textureId,options)
     end;
     local cacheName;
     if isLocal then
-        local localfilekey,_=string.gsub(meshId,"[^%w]", "_");
+        local localfilekey,_=string_gsub(meshId,"[^%w]", "_");
         cacheName="Mesh_"..localfilekey;
     else
         cacheName="Mesh_"..tostring(idNum)
     end;
-    local findCache=cache:FindFirstChild(cacheName);
+    local findCache=meshCache:FindFirstChild(cacheName);
     if findCache~=nil and findCache:IsA("MeshPart") then
         obj:Destroy();
         obj=findCache:Clone();
@@ -366,7 +387,7 @@ function createMeshPartAsync(meshId,textureId,options)
             obj=new;
             obj.TextureID=textureId;
             local cacheObj=obj:Clone();
-            cacheObj.Parent=cache;
+            cacheObj.Parent=meshCache;
             cacheObj.Name=cacheName;
         end;
     end;
@@ -454,9 +475,9 @@ local class_initializers={
     ["PartOperation"]=InstantiateSolidModel,
     ["Humanoid"]=function(class_name,parent,inst,prop,refs,loadSettings)
         local humanoid=Instance.new("Humanoid");
+        local healthprop=prop.Health or prop.Health_XML;
         humanoid.Parent=parent;
         humanoid.MaxHealth=prop.MaxHealth.value or 100;
-        local healthprop=prop.Health or prop.Health_XML;
         humanoid.Health=(healthprop~=nil and healthprop.value~=nil) and compile_prop("Health",healthprop,refs,class_name) or humanoid.MaxHealth;
         return humanoid;
     end,
@@ -503,48 +524,13 @@ local propExceptions={
     CustomPhysicalProperties=true,
     MaterialVariant=true,
 };
-function compile_prop(prop,v,refs,class)
-    local value=v.value;
-    local typed=v.type;
-    local compile=propertyTypes[typed] or propertyTypes[prop];
-    if compile then
-        local new=nil;
-        if typed=="enum" then
-            new=compile(typed,value,refs,{propName=prop,classInstance=class});
-        elseif typed=="string" then
-            new=compile(typed,value,refs,v.enc);
-        elseif typed=="content" then
-            new=compile(typed,value,refs,v.ctyp);
-        else
-            new=compile(typed,value,refs);
-        end;
-        return new;
-    else
-        if value~=nil then
-            return value;
-        else
-            return nil;
-        end;
-    end;
-end;
---[[ Initializes module --]]
-function mod:initialize(config,main)
-    if self.isInitialized then return end;
-    self.isInitialized=true;
-    self.Configuration=config;
-    modules.unionBuilder.modules.modelAssembler=mod;
-    modules.unionBuilder.modules.icloud=main;
-    if self.Configuration.Sandboxed==true then
-        sandbox_type="Sandbox";
-    end;
-end;
 --[[ Build properties tree --]]
-function initProp(obj,propName,prop,refs,loadSettings)
-    propName=string.upper(string.sub(propName,1,1))..string.sub(propName,2); --case the property correctly
+local function initProp(obj,propName,prop,refs,loadSettings)
+    propName=string_upper(string_sub(propName,1,1))..string_sub(propName,2); --case the property correctly
     if (propName=="Color3uint8") then
         propName="Color"; -- fixes the format changes to RBXM
-    elseif (propName=="SourceAssetId") then
-        obj:SetAttribute("AssetID",prop.value);
+    --elseif (propName=="SourceAssetId") then
+    --    obj:SetAttribute("AssetID",prop.value);
     elseif (propName=="Source") then
         --local brokenCodeToFix="^-%-%[%["..string.char(10).."%-%-%[%[";
         --local source:string=prop.value;
@@ -557,7 +543,7 @@ function initProp(obj,propName,prop,refs,loadSettings)
         end;
     elseif ((propName=="Playing" or propName=="IsPlaying") and prop.value==true) then
         obj.Playing=false;
-        pcall(function() obj:Stop(); end);
+        --pcall(function() obj:Stop(); end);
         obj:SetAttribute("IC_Playing",prop.value);
     elseif (propName=="Part1Internal") then
         obj.Part1=compile_prop("Part1",prop,refs,obj);
@@ -565,14 +551,6 @@ function initProp(obj,propName,prop,refs,loadSettings)
         obj.Part0=compile_prop("Part0",prop,refs,obj);
     elseif (propName=="MaterialVariantSerialized") then
         obj.MaterialVariant=compile_prop("MaterialVariant",prop,refs,obj);
-    elseif (propName=="PivotOffset" and obj:IsA("UnionOperation")) then
-        local current=compile_prop(propName,prop,refs,obj);
-        local baked=obj:GetAttribute("BakedInPivot");
-        if baked then
-            obj.PivotOffset=current * baked;
-        else
-            obj.PivotOffset=current;
-        end;
     elseif (propName=="Locked" and mod.Configuration.UnlockParts) then
         obj.Locked=false;
         --some properties dont have the name they have ingame, we fix that here
@@ -591,23 +569,23 @@ function initProp(obj,propName,prop,refs,loadSettings)
         obj[propName]=compile_prop(propName,prop,refs,obj);
     end;
 end;
-function buildProps(instances,refs,loadSettings)
-    for obj,inst in pairs(instances) do
-        for propName,prop in pairs(inst.properties) do
+local function buildProps(instances,refs,loadSettings)
+    for obj,inst in instances do
+        for propName,prop in inst.properties do
             local suc,err=pcall(initProp,obj,propName,prop,refs,loadSettings);
             if not suc and mod.debug_mode then
                 warn("Failed to apply property "..propName.." to instance: "..tostring(err));
             end;
         end;
         if loadSettings and loadSettings.ApplyAttributes and inst.attributes~=nil and type(inst.attributes)=="table" then
-            for attrName,attr in pairs(inst.attributes) do
+            for attrName,attr in inst.attributes do
                 obj:SetAttribute(attrName,compile_prop(attrName,attr,refs,obj));
             end;
         end;
     end;
 end;
 --[[ Build model tree --]]
-function buildModel(base,parent,rbxmtree,refs,loadSettings)
+local function buildModel(base,parent,rbxmtree,refs,loadSettings)
     refs=refs or {};
     loadSettings=loadSettings or {};
     local instances={};
@@ -644,6 +622,17 @@ function buildModel(base,parent,rbxmtree,refs,loadSettings)
     end;
     buildProps(instances,refs,loadSettings);
     return parent;
+end;
+--[[ Initializes module --]]
+function mod:initialize(config,main)
+    if self.isInitialized then return end;
+    self.isInitialized=true;
+    self.Configuration=config;
+    modules.unionBuilder.modules.modelAssembler=mod;
+    modules.unionBuilder.modules.icloud=main;
+    if self.Configuration.Sandboxed==true then
+        sandbox_type="Sandbox";
+    end;
 end;
 --[[ Builds asset from its tree and related data --]]
 function mod:buildAsset(data,root_parent,loadSettings)
