@@ -3,12 +3,9 @@ local replicated=game:GetService("ReplicatedStorage");
 local mod={
     _VERSION="9.0.0",
     modules={
-        b64=require(script.Parent.Base64), --b64
-        parser=require(script.Parent.RobloxFileFormat), --parser
         modelAssembler=nil, --populated at runtime
         icloud=nil, --populated at runtime
     },
-    debug_mode=false, --prints additional stuff to console
 };
 export type UnionOptions={
     CollisionFidelity:Enum.CollisionFidelity,
@@ -16,32 +13,21 @@ export type UnionOptions={
     SplitApart:boolean,
 };
 
-local unionCache=script:FindFirstChild("UnionCache") or Instance.new("Folder",script);
-unionCache.Name="UnionCache";
+local unionCache={};
+local b64=require(script.Parent.Base64); --b64
+local parser=require(script.Parent.RobloxFileFormat); --parser
+local b64_decode=b64.decode;
+local table_insert=table.insert;
+local table_sort=table.sort;
+local table_remove=table.remove;
+local table_pack=table.pack;
+local table_unpack=table.unpack;
 
 function parse(data)
-    return mod.modules.parser(mod.modules.b64.decode(data));
+    return parser(b64_decode(data));
 end;
-
-function print_if_debug(...)
-    if mod.debug_mode then
-        print(...);
-    end;
-end;
-function warn_if_debug(...)
-    if mod.debug_mode then
-        warn(...);
-    end;
-end;
---function mod:initialize(url)
---    parseUrl=url;
---end;
-function mod:applyAssetId(assetId:string,worldCFrame:CFrame,options:UnionOptions,isIntersection,isExperimental)
-    if not assetId or not worldCFrame then
-        warn("AssetId or WorldCFrame not provided.");
-        return nil;
-    end;
-    if type(assetId)~="string" then
+function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection:boolean,isExperimental:boolean)
+    if not assetId or type(assetId)~="string" then
         warn("AssetId is not a string.");
         return nil;
     end;
@@ -55,47 +41,53 @@ function mod:applyAssetId(assetId:string,worldCFrame:CFrame,options:UnionOptions
             return nil;
         end;
         local cacheName="Union_"..tostring(assetIdToLoad);
-        local findCache=unionCache:FindFirstChild(cacheName);
+        local findCache=unionCache[cacheName];
         if findCache then
-            loadable=findCache:Clone();
+            return findCache:Clone();
         else
-            loadable=(isExperimental) and self:applyChildDataNew(childData,worldCFrame,options,isIntersection) or self:applyChildData(childData,worldCFrame,options,isIntersection);
+            local thefunc;
+            if isExperimental then
+                thefunc=self.applyChildDataNew;
+            else
+                thefunc=self.applyChildData;
+            end;
+            loadable=thefunc(self,childData,options,isIntersection);
             if loadable then
-                local cached=loadable:Clone();
-                cached.Parent=unionCache;
-                cached.Name=cacheName;
+                unionCache[cacheName]=loadable;
+                return loadable:Clone();
             end;
         end;
     else
         warn("Asset ID is not valid. Make sure you have the correct asset ID for the union you want to insert.");
     end;
-    return loadable;
+    return nil;
 end;
-function mod:applyAssetData(assetData:string,worldCFrame:CFrame,options:UnionOptions,isIntersection,isExperimental)
+function mod:applyAssetData(assetData:string,options:UnionOptions,isIntersection:boolean,isExperimental:boolean)
     print("asset data called");
+    local thefunc;
+    if isExperimental then
+        thefunc=self.applyChildDataNew;
+    else
+        thefunc=self.applyChildData;
+    end;
     local suc,res=pcall(parse,assetData);
     local childData=nil;
     if suc then
         if res~=nil then
-            print_if_debug(res);
             if res.tree then
                 local instance=res.tree[1];
                 if instance then
                     childData=instance.properties.ChildData.value;
                 end;
-            else
-                mod:logMsg("error","Failed to parse asset data: No tree data.");
             end;
-        else
-            mod:logMsg("error","Failed to parse asset data: No response data.");
         end;
     else
-        warn("Failed to get data: "..res);
+        warn("Parse Failed: "..res);
     end;
     if not childData then
         return nil;
     end;
-    return (isExperimental) and self:applyChildDataNew(childData,worldCFrame,options,isIntersection) or self:applyChildData(childData,worldCFrame,options,isIntersection);
+    return thefunc(self,childData,options,isIntersection)
 end;
 function centerUnionPivot(union,options,parent)
     local tempModel = Instance.new("Model");
@@ -119,28 +111,26 @@ function centerUnionPivot(union,options,parent)
     union.Parent=parent;
 end;
 
-function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,isIntersection)
+function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolean)
     local suc,res=pcall(parse,childData);
     if not suc then
-        warn("Failed to get data: "..res);
+        warn("Parse Failed: "..res);
     else
-        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder");
-        loadFolder.Parent=replicated;
-        loadFolder.Name="UnionOperationLoadCache";
-        local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
+        local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
         local function reconstruct(model:Model)
             if not model then return end;
             local partToAttachTo=nil;
             local theparts=model:GetChildren();
             local negativeParts={};
             local parts={};
-            if #theparts<1 then
+            local partslen=#theparts;
+            if partslen<1 then
                 warn("Model has no children to union.");
                 return nil;
             end;
             partToAttachTo=theparts[1];
             if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
-                table.insert(negativeParts,partToAttachTo);
+                table_insert(negativeParts,partToAttachTo);
                 local old=partToAttachTo;
                 partToAttachTo=Instance.new("Part");
                 partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
@@ -151,41 +141,44 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
                 partToAttachTo.Name="UnionBasePart";
                 partToAttachTo.Parent=model;
             end;
-            for i=1,#theparts do
+            for i=1,partslen do
                 v=theparts[i];
-                if v:IsA("BasePart") then
-                    v.CFrame=worldCFrame*v.CFrame;
-                    if v~=partToAttachTo then
-                        if v:GetAttribute("IsNegateOperation") then
-                            table.insert(negativeParts,v);
-                        else
-                            table.insert(parts,v);
-                        end;
+                if v:IsA("BasePart") and v~=partToAttachTo then
+                    if v:GetAttribute("IsNegateOperation") then
+                        table_insert(negativeParts,v);
+                    else
+                        table_insert(parts,v);
                     end;
                 end;
             end;
             local old=partToAttachTo;
+            local collisionFidelity=options.CollisionFidelity;
+            local renderFidelity=options.RenderFidelity;
+            if not collisionFidelity then
+                collisionFidelity=Enum.CollisionFidelity.Default;
+            end;
+            if not renderFidelity then
+                renderFidelity=Enum.RenderFidelity.Performance;
+            end;
             local suc,Union=pcall(function()
                 if isIntersection then
-                    partToAttachTo=partToAttachTo:IntersectAsync(parts,options.CollisionFidelity,options.RenderFidelity);
-                    partToAttachTo.Parent=loadFolder;
-                    partToAttachTo=old:IntersectAsync({partToAttachTo},options.CollisionFidelity,options.RenderFidelity); -- this is odd but fixes the problems
-                    partToAttachTo.Parent=loadFolder;
+                    partToAttachTo=partToAttachTo:IntersectAsync(parts,collisionFidelity,renderFidelity);
+                    partToAttachTo.Parent=model;
+                    partToAttachTo=partToAttachTo:IntersectAsync({old},collisionFidelity,renderFidelity); -- this is odd but fixes the problems
+                    partToAttachTo.Parent=model;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
                     old:Destroy();
                     return partToAttachTo;
                 end;
-                print_if_debug(parts);
-                partToAttachTo=partToAttachTo:UnionAsync(parts,options.CollisionFidelity,options.RenderFidelity);
+                partToAttachTo=partToAttachTo:UnionAsync(parts,collisionFidelity,renderFidelity);
                 partToAttachTo.Parent=model;
                 partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                 old:Destroy();
                 old=partToAttachTo;
-                print_if_debug(negativeParts);
                 if #negativeParts~=0 then
-                    partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,options.CollisionFidelity,options.RenderFidelity);
-                    partToAttachTo.Parent=loadFolder;
+                    partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,collisionFidelity,renderFidelity);
+                    partToAttachTo.Parent=model;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();
                 end;
@@ -196,47 +189,41 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
                 warn("Union operation failed: "..tostring(Union));
                 return nil;
             end;
-            for i=1,#theparts do
-                v=theparts[i];
-                if v:IsA("BasePart") and v~=partToAttachTo then
-                    v:Destroy();
-                end;
-            end;
             if not Union then
                 warn("Union operation failed: No part was returned.");
                 return nil;
             end;
-            partToAttachTo.Parent=loadFolder;
-            model:Destroy();
-            return partToAttachTo;
+            return Union;
         end;
-        return reconstruct(model);
+        local union=reconstruct(model);
+        model:Destroy();
+        if not union then
+            return nil;
+        end;
+        return union;
     end;
 end;
 
-function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions,isIntersection)
+function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection:boolean)
     local suc,res=pcall(parse,childData);
     if not suc then
-        warn("Failed to get data: "..res);
+        warn("Parse Failed: "..res);
     else
-        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder");
-        loadFolder.Parent=replicated;
-        loadFolder.Name="UnionOperationLoadCache";
-        local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
-        local function reconstruct(model)
+        local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
+        local function reconstruct(model:Model)
             if not model then return end;
             local partToAttachTo=nil;
             local theparts=model:GetChildren();
             local negativeParts={};
             local parts={};
-            if #theparts<1 then
+            local partslen=#theparts;
+            if partslen<1 then
                 warn("Model has no children to union.");
                 return nil;
             end;
             partToAttachTo=theparts[1];
             if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
-                print_if_debug("found");
-                table.insert(negativeParts,partToAttachTo);
+                table_insert(negativeParts,partToAttachTo);
                 local old=partToAttachTo;
                 partToAttachTo=Instance.new("Part");
                 partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
@@ -247,16 +234,13 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
                 partToAttachTo.Name="UnionBasePart";
                 partToAttachTo.Parent=model;
             end;
-            for i=1,#theparts do
+            for i=1,partslen do
                 v=theparts[i];
-                if v:IsA("BasePart") then
-                    v.CFrame=worldCFrame*v.CFrame;
-                    if v~=partToAttachTo then
-                        if v:GetAttribute("IsNegateOperation") then
-                            table.insert(negativeParts,v);
-                        else
-                            table.insert(parts,v);
-                        end;
+                if v:IsA("BasePart") and v~=partToAttachTo then
+                    if v:GetAttribute("IsNegateOperation") then
+                        table_insert(negativeParts,v);
+                    else
+                        table_insert(parts,v);
                     end;
                 end;
             end;
@@ -264,24 +248,22 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
             local suc,Union=pcall(function()
                 if isIntersection then
                     partToAttachTo=geometryService:IntersectAsync(partToAttachTo,parts,options)[1];
-                    partToAttachTo.Parent=loadFolder;
-                    partToAttachTo=geometryService:IntersectAsync(old,{partToAttachTo},options)[1]; -- this is odd but fixes the problems
-                    partToAttachTo.Parent=loadFolder;
+                    partToAttachTo.Parent=model;
+                    partToAttachTo=geometryService:IntersectAsync(partToAttachTo,{old},options)[1]; -- this is odd but fixes the problems
+                    partToAttachTo.Parent=model;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
                     old:Destroy();
                     return partToAttachTo;
                 end;
-                print_if_debug(parts);
                 partToAttachTo=geometryService:UnionAsync(partToAttachTo,parts,options)[1];
                 partToAttachTo.Parent=model;
                 partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                 old:Destroy();
                 old=partToAttachTo;
-                print_if_debug(negativeParts);
                 if #negativeParts~=0 then
                     partToAttachTo=geometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
-                    partToAttachTo.Parent=loadFolder;
+                    partToAttachTo.Parent=model;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();
                 end;
@@ -292,21 +274,18 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
                 warn("Union operation failed: "..tostring(Union));
                 return nil;
             end;
-            for i=1,#theparts do
-                v=theparts[i];
-                if v:IsA("BasePart") and v~=partToAttachTo then
-                    v:Destroy();
-                end;
-            end;
             if not Union then
                 warn("Union operation failed: No part was returned.");
                 return nil;
             end;
-            partToAttachTo.Parent=loadFolder;
-            model:Destroy();
-            return partToAttachTo;
+            return Union;
         end;
-        return reconstruct(model);
+        local union=reconstruct(model);
+        model:Destroy();
+        if not union then
+            return nil;
+        end;
+        return union;
     end;
 end;
 
