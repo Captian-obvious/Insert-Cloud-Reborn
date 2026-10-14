@@ -114,178 +114,178 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
     local suc,res=pcall(parse,childData);
     if not suc then
         warn("Parse Failed: "..res);
-    else
-        local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
-        local function reconstruct(model:Model)
-            if not model then return end;
-            local partToAttachTo=nil;
-            local theparts=model:GetChildren();
-            local negativeParts={};
-            local parts={};
-            local partslen=#theparts;
-            if partslen<1 then
-                warn("Model has no children to union.");
-                return nil;
-            end;
-            partToAttachTo=theparts[1];
-            if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
-                table_insert(negativeParts,partToAttachTo);
-                local old=partToAttachTo;
-                partToAttachTo=Instance.new("Part");
-                partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
-                partToAttachTo.Position=old.Position
-                partToAttachTo.Anchored=old.Anchored;
-                partToAttachTo.Transparency=1;
-                partToAttachTo.CanCollide=false;
-                partToAttachTo.Name="UnionBasePart";
-                partToAttachTo.Parent=model;
-            end;
-            for i=1,partslen do
-                v=theparts[i];
-                if v:IsA("BasePart") and v~=partToAttachTo then
-                    if v:GetAttribute("IsNegateOperation") then
-                        table_insert(negativeParts,v);
-                    else
-                        table_insert(parts,v);
-                    end;
-                end;
-            end;
+        return nil;
+    end;
+    local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
+    local function reconstruct(model:Model)
+        if not model then return end;
+        local partToAttachTo=nil;
+        local theparts=model:GetChildren();
+        local negativeParts={};
+        local parts={};
+        local partslen=#theparts;
+        if partslen<1 then
+            warn("Model has no children to union.");
+            return nil;
+        end;
+        partToAttachTo=theparts[1];
+        if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
+            table_insert(negativeParts,partToAttachTo);
             local old=partToAttachTo;
-            local collisionFidelity=options.CollisionFidelity;
-            local renderFidelity=options.RenderFidelity;
-            if not collisionFidelity then
-                collisionFidelity=Enum.CollisionFidelity.Default;
-            end;
-            if not renderFidelity then
-                renderFidelity=Enum.RenderFidelity.Performance;
-            end;
-            local suc,Union=pcall(function()
-                if isIntersection then
-                    partToAttachTo=partToAttachTo:IntersectAsync(parts,collisionFidelity,renderFidelity);
-                    partToAttachTo.Parent=model;
-                    partToAttachTo=partToAttachTo:IntersectAsync({old},collisionFidelity,renderFidelity); -- this is odd but fixes the problems
-                    partToAttachTo.Parent=model;
-                    partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-                    centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
-                    old:Destroy();
-                    return partToAttachTo;
+            partToAttachTo=Instance.new("Part");
+            partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
+            partToAttachTo.Position=old.Position
+            partToAttachTo.Anchored=old.Anchored;
+            partToAttachTo.Transparency=1;
+            partToAttachTo.CanCollide=false;
+            partToAttachTo.Name="UnionBasePart";
+            partToAttachTo.Parent=model;
+        end;
+        for i=1,partslen do
+            v=theparts[i];
+            if v:IsA("BasePart") and v~=partToAttachTo then
+                if v:GetAttribute("IsNegateOperation") then
+                    table_insert(negativeParts,v);
+                else
+                    table_insert(parts,v);
                 end;
-                partToAttachTo=partToAttachTo:UnionAsync(parts,collisionFidelity,renderFidelity);
+            end;
+        end;
+        local old=partToAttachTo;
+        local collisionFidelity=options.CollisionFidelity;
+        local renderFidelity=options.RenderFidelity;
+        if not collisionFidelity then
+            collisionFidelity=Enum.CollisionFidelity.Default;
+        end;
+        if not renderFidelity then
+            renderFidelity=Enum.RenderFidelity.Performance;
+        end;
+        local suc,Union=pcall(function()
+            if isIntersection then
+                partToAttachTo=partToAttachTo:IntersectAsync(parts,collisionFidelity,renderFidelity);
+                partToAttachTo.Parent=model;
+                partToAttachTo=partToAttachTo:IntersectAsync({old},collisionFidelity,renderFidelity); -- this is odd but fixes the problems
+                partToAttachTo.Parent=model;
+                partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
+                centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+                old:Destroy();
+                return partToAttachTo;
+            end;
+            partToAttachTo=partToAttachTo:UnionAsync(parts,collisionFidelity,renderFidelity);
+            partToAttachTo.Parent=model;
+            partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
+            old:Destroy();
+            old=partToAttachTo;
+            if #negativeParts~=0 then
+                partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,collisionFidelity,renderFidelity);
                 partToAttachTo.Parent=model;
                 partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                 old:Destroy();
-                old=partToAttachTo;
-                if #negativeParts~=0 then
-                    partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,collisionFidelity,renderFidelity);
-                    partToAttachTo.Parent=model;
-                    partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-                    old:Destroy();
-                end;
-                centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
-                return partToAttachTo;
-            end);
-            if not suc then
-                warn("Union operation failed: "..tostring(Union));
-                return nil;
             end;
-            if not Union then
-                warn("Union operation failed: No part was returned.");
-                return nil;
-            end;
-            return Union;
-        end;
-        local union=reconstruct(model);
-        model:Destroy();
-        if not union then
+            centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+            return partToAttachTo;
+        end);
+        if not suc then
+            warn("Union operation failed: "..tostring(Union));
             return nil;
         end;
-        return union;
+        if not Union then
+            warn("Union operation failed: No part was returned.");
+            return nil;
+        end;
+        return Union;
     end;
+    local union=reconstruct(model);
+    model:Destroy();
+    if not union then
+        return nil;
+    end;
+    return union;
 end;
 
 function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection:boolean)
     local suc,res=pcall(parse,childData);
     if not suc then
         warn("Parse Failed: "..res);
-    else
-        local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
-        local function reconstruct(model:Model)
-            if not model then return end;
-            local partToAttachTo=nil;
-            local theparts=model:GetChildren();
-            local negativeParts={};
-            local parts={};
-            local partslen=#theparts;
-            if partslen<1 then
-                warn("Model has no children to union.");
-                return nil;
-            end;
-            partToAttachTo=theparts[1];
-            if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
-                table_insert(negativeParts,partToAttachTo);
-                local old=partToAttachTo;
-                partToAttachTo=Instance.new("Part");
-                partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
-                partToAttachTo.Position=old.Position
-                partToAttachTo.Anchored=old.Anchored;
-                partToAttachTo.Transparency=1;
-                partToAttachTo.CanCollide=false;
-                partToAttachTo.Name="UnionBasePart";
-                partToAttachTo.Parent=model;
-            end;
-            for i=1,partslen do
-                v=theparts[i];
-                if v:IsA("BasePart") and v~=partToAttachTo then
-                    if v:GetAttribute("IsNegateOperation") then
-                        table_insert(negativeParts,v);
-                    else
-                        table_insert(parts,v);
-                    end;
-                end;
-            end;
+        return nil;
+    end;
+    local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
+    local function reconstruct(model:Model)
+        if not model then return end;
+        local partToAttachTo=nil;
+        local theparts=model:GetChildren();
+        local negativeParts={};
+        local parts={};
+        local partslen=#theparts;
+        if partslen<1 then
+            warn("Model has no children to union.");
+            return nil;
+        end;
+        partToAttachTo=theparts[1];
+        if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
+            table_insert(negativeParts,partToAttachTo);
             local old=partToAttachTo;
-            local suc,Union=pcall(function()
-                if isIntersection then
-                    partToAttachTo=geometryService:IntersectAsync(partToAttachTo,parts,options)[1];
-                    partToAttachTo.Parent=model;
-                    partToAttachTo=geometryService:IntersectAsync(partToAttachTo,{old},options)[1]; -- this is odd but fixes the problems
-                    partToAttachTo.Parent=model;
-                    partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-                    centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
-                    old:Destroy();
-                    return partToAttachTo;
+            partToAttachTo=Instance.new("Part");
+            partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
+            partToAttachTo.Position=old.Position
+            partToAttachTo.Anchored=old.Anchored;
+            partToAttachTo.Transparency=1;
+            partToAttachTo.CanCollide=false;
+            partToAttachTo.Name="UnionBasePart";
+            partToAttachTo.Parent=model;
+        end;
+        for i=1,partslen do
+            v=theparts[i];
+            if v:IsA("BasePart") and v~=partToAttachTo then
+                if v:GetAttribute("IsNegateOperation") then
+                    table_insert(negativeParts,v);
+                else
+                    table_insert(parts,v);
                 end;
-                partToAttachTo=geometryService:UnionAsync(partToAttachTo,parts,options)[1];
+            end;
+        end;
+        local old=partToAttachTo;
+        local suc,Union=pcall(function()
+            if isIntersection then
+                partToAttachTo=geometryService:IntersectAsync(partToAttachTo,parts,options)[1];
+                partToAttachTo.Parent=model;
+                partToAttachTo=geometryService:IntersectAsync(partToAttachTo,{old},options)[1]; -- this is odd but fixes the problems
+                partToAttachTo.Parent=model;
+                partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
+                centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+                old:Destroy();
+                return partToAttachTo;
+            end;
+            partToAttachTo=geometryService:UnionAsync(partToAttachTo,parts,options)[1];
+            partToAttachTo.Parent=model;
+            partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
+            old:Destroy();
+            old=partToAttachTo;
+            if #negativeParts~=0 then
+                partToAttachTo=geometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
                 partToAttachTo.Parent=model;
                 partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                 old:Destroy();
-                old=partToAttachTo;
-                if #negativeParts~=0 then
-                    partToAttachTo=geometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
-                    partToAttachTo.Parent=model;
-                    partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-                    old:Destroy();
-                end;
-                centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
-                return partToAttachTo;
-            end);
-            if not suc then
-                warn("Union operation failed: "..tostring(Union));
-                return nil;
             end;
-            if not Union then
-                warn("Union operation failed: No part was returned.");
-                return nil;
-            end;
-            return Union;
-        end;
-        local union=reconstruct(model);
-        model:Destroy();
-        if not union then
+            centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
+            return partToAttachTo;
+        end);
+        if not suc then
+            warn("Union operation failed: "..tostring(Union));
             return nil;
         end;
-        return union;
+        if not Union then
+            warn("Union operation failed: No part was returned.");
+            return nil;
+        end;
+        return Union;
     end;
+    local union=reconstruct(model);
+    model:Destroy();
+    if not union then
+        return nil;
+    end;
+    return union;
 end;
 
 return mod;
