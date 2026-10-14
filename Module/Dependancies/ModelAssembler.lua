@@ -15,6 +15,9 @@ local mod={
     Configuration={},
     debug_mode=false, --prints additional stuff to console
 };
+local contentUri=Content.fromUri;
+local contentObj=Content.fromObject;
+local table_find=table.find;
 function resolveEnumInteger(enum:Enum, int:number)
     local vals=enum:GetEnumItems();
     for _,e in vals do
@@ -51,20 +54,20 @@ local propertyTypes={
             return "";
         end;
     end,
-    --["content"]=function(typed,value,refs,contentType)
-    --    if typed~="content" then return end;
-    --    if value=="" or value==nil then return end;
-    --    if contentType=="obj" then
-    --        return Content.fromObject(refs[value+1]); -- object references are base-0
-    --    elseif contentType=="uri" then
-    --        return Content.fromUri(value);
-    --    else
-    --        return Content.fromUri(value); -- default to uri
-    --    end;
-    --end,
+    ["content"]=function(typed,value,refs,contentType)
+        if typed~="content" then return end;
+        if value=="" or value==nil then return end;
+        if contentType=="obj" then
+            return contentObj(refs[value+1]); -- object references are base-0
+        elseif contentType=="uri" then
+            return contentUri(value);
+        else
+            return contentUri(value); -- default to uri
+        end;
+    end,
     ["sharedstr"]=function(typed,value,refs)
         if typed=="sharedstr" then
-            return modules.sstrParse:ParseSharedStr(value);
+            return modules.b64.decode(value);
         else
             return "";
         end;
@@ -313,14 +316,12 @@ function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
     return part;
 end;
 function createSurfaceAppearanceAsync(prop) --the workaround, only color works though so....
-    local uri=Content.fromUri
-    local obj=Content.fromObject
     local suc,surf=pcall(function()
         local propmaps={
-            c=uri(prop.ColorMap.value),
-            m=uri(prop.MetalnessMap.value),
-            n=uri(prop.NormalMap.value),
-            r=uri(prop.RoughnessMap.value),
+            c=contentUri(prop.ColorMap.value),
+            m=contentUri(prop.MetalnessMap.value),
+            n=contentUri(prop.NormalMap.value),
+            r=contentUri(prop.RoughnessMap.value),
         };
         local sa= Services.AssetService:CreateSurfaceAppearanceAsync({
             ColorMap=propmaps.c,
@@ -362,7 +363,7 @@ function createMeshPartAsync(meshId,textureId,options)
         obj.TextureID=textureId;
     else
         local suc,new=pcall(function()
-            return Services.AssetService:CreateMeshPartAsync(Content.fromUri(meshId),options)
+            return Services.AssetService:CreateMeshPartAsync(contentUri(meshId),options)
         end);
         if not suc then
             warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: "..tostring(new));
@@ -433,7 +434,6 @@ local class_initializers={
                 CollisionFidelity=colfidelity,
                 RenderFidelity=rendfidelity
             });
-
         else
             local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
             local OrigSize=compile_prop("Size",prop.size,refs,class_name);
@@ -519,8 +519,8 @@ function compile_prop(prop,v,refs,class)
             new=compile(typed,value,refs,{propName=prop,classInstance=class});
         elseif typed=="string" then
             new=compile(typed,value,refs,v.enc);
-        --elseif typed=="content" then
-        --    new=compile(typed,value,refs,v.ctyp);
+        elseif typed=="content" then
+            new=compile(typed,value,refs,v.ctyp);
         else
             new=compile(typed,value,refs);
         end;
@@ -544,53 +544,6 @@ function mod:initialize(config,main)
         sandbox_type="Sandbox";
     end;
 end;
---[[ Build model tree --]]
-function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
-    refs=refs or {};
-    loadSettings=loadSettings or {};
-    local instances={};
-    local hierarcy={{parent,rbxmtree}};
-    while #hierarcy>0 do
-        local parent,tree=unpack(hierarcy[#hierarcy]);
-        hierarcy[#hierarcy]=nil;
-        for i=1,#tree do
-            local inst=tree[i];
-            local classname=inst.ClassName;
-            if (not table.find(blocked_classes,inst.ClassName)) then
-                local instance;
-                local classInit=class_initializers[classname];
-                if classInit then
-                    --print_if_debug(loadSettings);
-                    instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings);
-                else
-                    instance=Instance.new(classname);
-                    instance.Parent=parent;
-                end;
-                if instance then
-                    if instance:IsA("BasePart") then
-                        instance.Anchored=true;
-                        instance.CanCollide=false;
-                    end;
-                    refs[inst.Ref+1]=instance; -- refs are base-0
-                    instances[instance]=inst;
-                    if #inst.children>0 then
-                        hierarcy[#hierarcy+1]={instance,inst.children};
-                    end;
-                end;
-            end;
-        end;
-    end;
-    mod.buildProps(instances,refs,loadSettings);
-end;
---local precased_props={};
---function caseProp(prop)
---    if precased_props[prop] then
---        return precased_props[prop];
---    end
---    local cased=string.upper(string.sub(prop,1,1))..string.sub(prop,2);
---    precased_props[prop]=cased;
---    return cased;
---end;
 --[[ Build properties tree --]]
 function initProp(obj,propName,prop,refs,loadSettings)
     propName=string.upper(string.sub(propName,1,1))..string.sub(propName,2); --case the property correctly
@@ -644,7 +597,7 @@ function initProp(obj,propName,prop,refs,loadSettings)
         obj[propName]=compile_prop(propName,prop,refs,obj);
     end;
 end;
-function mod.buildProps(instances,refs,loadSettings)
+function buildProps(instances,refs,loadSettings)
     for obj,inst in pairs(instances) do
         for propName,prop in pairs(inst.properties) do
             local suc,err=pcall(initProp,obj,propName,prop,refs,loadSettings);
@@ -659,6 +612,45 @@ function mod.buildProps(instances,refs,loadSettings)
         end;
     end;
 end;
+--[[ Build model tree --]]
+function buildModel(base,parent,rbxmtree,refs,loadSettings)
+    refs=refs or {};
+    loadSettings=loadSettings or {};
+    local instances={};
+    local hierarcy={{parent,rbxmtree}};
+    while #hierarcy>0 do
+        local parent,tree=unpack(hierarcy[#hierarcy]);
+        hierarcy[#hierarcy]=nil;
+        for i=1,#tree do
+            local inst=tree[i];
+            local classname=inst.ClassName;
+            if (not table_find(blocked_classes,inst.ClassName)) then
+                local instance;
+                local classInit=class_initializers[classname];
+                if classInit then
+                    --print_if_debug(loadSettings);
+                    instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings);
+                else
+                    instance=Instance.new(classname);
+                    instance.Parent=parent;
+                end;
+                if instance then
+                    if instance:IsA("BasePart") then
+                        instance.Anchored=true;
+                        instance.CanCollide=false;
+                    end;
+                    refs[inst.Ref+1]=instance; -- refs are base-0
+                    instances[instance]=inst;
+                    if #inst.children>0 then
+                        hierarcy[#hierarcy+1]={instance,inst.children};
+                    end;
+                end;
+            end;
+        end;
+    end;
+    buildProps(instances,refs,loadSettings);
+    return parent;
+end;
 --[[ Builds asset from its tree and related data --]]
 function mod:buildAsset(data,root_parent,loadSettings)
     if self.isInitialized then
@@ -668,8 +660,7 @@ function mod:buildAsset(data,root_parent,loadSettings)
         rootModel.Name=data.AssetIdParsed or "UNNAMED_ASSET";
         local rbxm=data.modelData; -- this is json that is provided
         loadSettings=loadSettings or {};
-        self.buildModel(rootModel,rootModel,rbxm.tree,{},loadSettings);
-        return rootModel;
+        return buildModel(rootModel,rootModel,rbxm.tree,{},loadSettings);
     else
         warn("ModelAssembler is not initialized.");
         return nil;
