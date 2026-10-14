@@ -48,8 +48,7 @@ local templateCache = {};
 for _, child in ipairs(Templates:GetChildren()) do
     templateCache[child.Name] = child;
 end;
-local meshCache=script:FindFirstChild("MeshPartCache") or Instance.new("Folder",script);
-meshCache.Name="MeshPartCache";
+local meshCache={};
 local propertyTypes={
     -- things that need additonal parsing go here
     ["string"]=function(typed,value,refs,encoded)
@@ -298,27 +297,35 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
         SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
     };
     local unionWorldCFrame=compile_prop("CFrame",prop.CFrame,refs,part);
-    local suc,model;
+    local model;
     if assetId then
-        suc,model=true,union:applyAssetId(assetId,unionWorldCFrame,options,isIntersection,experimental);
+        model=union:applyAssetId(assetId,options,isIntersection,experimental);
     elseif childData~=nil or childData2~=nil then
         local data=(childData2~=nil) and childData2 or childData;
-        suc,model=pcall(function()
-            return (experimental) and union:applyChildDataNew(data,unionWorldCFrame,options,isIntersection) or union:applyChildData(data,unionWorldCFrame,options,isIntersection);
-        end);
-    elseif assetData then
-        suc,model=true,union:applyAssetData(assetData,unionWorldCFrame,options,isIntersection,experimental);
-    end;
-    if suc and model~=nil then
-        if model.ClassName=="PartOperation" then
-            part.Parent=parent;
-            part:SubstituteGeometry(model);
-            model:Destroy();
+        local thefunc;
+        if experimental then
+            thefunc=union.applyChildDataNew;
         else
-            part:Destroy();
-            part=model;
-            part.Parent=parent;
+            thefunc=union.applyChildData;
         end;
+        model=thefunc(union,data,options,isIntersection);
+        --model=union:applyChildDataNew(data,options,isIntersection);
+    elseif assetData then
+        model=union:applyAssetData(assetData,options,isIntersection,experimental);
+    end;
+    if model~=nil then
+        --if model.ClassName=="PartOperation" then
+        --    part.Parent=parent;
+        --    part:SubstituteGeometry(model);
+        --    model:Destroy();
+        --else
+        --    part:Destroy();
+        --    part=model;
+        --    part.Parent=parent;
+        --end;
+        part.Parent=parent;
+        part:SubstituteGeometry(model);
+        model:Destroy();
     end;
     if (class_name=="NegateOperation") or (inst.tags and table_find(inst.tags,"rbxNegated")) then
         part:SetAttribute("IsNegateOperation",true);
@@ -343,13 +350,12 @@ local function createMeshPartAsync(meshId,textureId,options)
     else
         cacheName="Mesh_"..tostring(idNum);
     end;
-    local findCache=meshCache:FindFirstChild(cacheName);
+    local findCache=meshCache[cacheName];
     if findCache~=nil and findCache:IsA("MeshPart") then
         obj:Destroy();
         obj=findCache:Clone();
         obj.TextureID=textureId;
     else
-
         local suc,new=pcall(assetService.CreateMeshPartAsync,assetService,contentUri(meshId),options);
         if not suc then
             warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: "..tostring(new));
@@ -357,9 +363,7 @@ local function createMeshPartAsync(meshId,textureId,options)
             obj:Destroy();
             obj=new;
             obj.TextureID=textureId;
-            local cacheObj=obj:Clone();
-            cacheObj.Parent=meshCache;
-            cacheObj.Name=cacheName;
+            meshCache[cacheName]=obj:Clone();
         end;
     end;
     return obj;

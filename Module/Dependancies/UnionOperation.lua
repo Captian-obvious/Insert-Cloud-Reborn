@@ -71,17 +71,17 @@ function mod:applyAssetData(assetData:string,options:UnionOptions,isIntersection
     end;
     local suc,res=pcall(parse,assetData);
     local childData=nil;
-    if suc then
-        if res~=nil then
-            if res.tree then
-                local instance=res.tree[1];
-                if instance then
-                    childData=instance.properties.ChildData.value;
-                end;
+    if not suc then
+        warn("Parse Failed: "..res);
+        return nil;
+    end;
+    if res~=nil then
+        if res.tree then
+            local instance=res.tree[1];
+            if instance then
+                childData=instance.properties.ChildData.value;
             end;
         end;
-    else
-        warn("Parse Failed: "..res);
     end;
     if not childData then
         return nil;

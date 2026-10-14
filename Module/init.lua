@@ -93,7 +93,7 @@ end;
 local function getDefaultSettings()
     return Configuration.DefaultSettings;
 end;
-local function handleQueue(url,assetId,ver,api_key,assetType)
+local function handleQueue(url:string,assetId:number,ver:number,api_key:Secret,assetType:string)
     logMsg({
         MessageType="warn",
         MessageText="HTTP 429 (Too Many Requests) for asset " .. assetId .. " (Place ID: " .. serverplaceid .. ")."
@@ -112,7 +112,7 @@ local function handleQueue(url,assetId,ver,api_key,assetType)
     local suc,res;
     return requestORQueue(url,assetId,ver,api_key,assetType); --try again
 end;
-function requestORQueue(url,assetId,ver,api_key,assetType)
+function requestORQueue(url:string,assetId:number,ver:number,api_key:Secret,assetType:string)
     local full_url;
     if typeof(url)=="Secret" then
         local appended="/"..assetId.."?placeId="..serverplaceid;
