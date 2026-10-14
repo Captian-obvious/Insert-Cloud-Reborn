@@ -1,9 +1,5 @@
-local Services={
-    ReplicatedStorage=game:GetService("ReplicatedStorage"),
-    InsertService=game:GetService("InsertService"),
-    HttpService=game:GetService("HttpService"),
-    GeometryService=game:GetService("GeometryService"),
-};
+local geometryService=game:GetService("GeometryService");
+local replicated=game:GetService("ReplicatedStorage");
 local mod={
     _VERSION="9.0.0",
     modules={
@@ -19,6 +15,9 @@ export type UnionOptions={
     RenderFidelity:Enum.RenderFidelity,
     SplitApart:boolean,
 };
+
+local unionCache=script:FindFirstChild("UnionCache") or Instance.new("Folder",script);
+unionCache.Name="UnionCache";
 
 function parse(data)
     return mod.modules.parser(mod.modules.b64.decode(data));
@@ -38,33 +37,37 @@ end;
 --    parseUrl=url;
 --end;
 function mod:applyAssetId(assetId:string,worldCFrame:CFrame,options:UnionOptions,isIntersection,isExperimental)
+    if not assetId or not worldCFrame then
+        warn("AssetId or WorldCFrame not provided.");
+        return nil;
+    end;
+    if type(assetId)~="string" then
+        warn("AssetId is not a string.");
+        return nil;
+    end;
     local loadable=nil;
-    local cache=script:FindFirstChild("UnionCache") or Instance.new("Folder",script);
-    cache.Name="UnionCache";
-    if typeof(assetId)=="string" then
-        local id=assetId:match("(%d+)$");
-        if id then
-            local assetIdToLoad=tonumber(id);
-            local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
-            if not childData then
-                warn("Failed to load SolidModel asset with ID "..tostring(assetIdToLoad)..". Make sure the asset ID is correct and the asset is a valid SolidModel.");
-                return nil;
-            end;
-            local cacheName="Union_"..tostring(assetIdToLoad);
-            local findCache=cache:FindFirstChild(cacheName);
-            if findCache then
-                loadable=findCache:Clone();
-            else
-                loadable=(isExperimental) and self:applyChildDataNew(childData,worldCFrame,options,isIntersection) or self:applyChildData(childData,worldCFrame,options,isIntersection);
+    local id=assetId:match("(%d+)$");
+    if id then
+        local assetIdToLoad=tonumber(id);
+        local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
+        if not childData then
+            warn("Failed to load SolidModel asset with ID "..tostring(assetIdToLoad)..". Make sure the asset ID is correct and the asset is a valid SolidModel.");
+            return nil;
+        end;
+        local cacheName="Union_"..tostring(assetIdToLoad);
+        local findCache=unionCache:FindFirstChild(cacheName);
+        if findCache then
+            loadable=findCache:Clone();
+        else
+            loadable=(isExperimental) and self:applyChildDataNew(childData,worldCFrame,options,isIntersection) or self:applyChildData(childData,worldCFrame,options,isIntersection);
+            if loadable then
                 local cached=loadable:Clone();
-                cached.Parent=cache;
+                cached.Parent=unionCache;
                 cached.Name=cacheName;
             end;
-        else
-            warn("Asset ID is not valid. Make sure you have the correct asset ID for the union you want to insert.");
         end;
     else
-        return error("Invalid Asset URI, expected string, got",typeof(assetId))
+        warn("Asset ID is not valid. Make sure you have the correct asset ID for the union you want to insert.");
     end;
     return loadable;
 end;
@@ -109,7 +112,7 @@ function centerUnionPivot(union,options,parent)
     if union:IsA("UnionOperation") then
         new=centeredPart:UnionAsync({union},options.CollisionFidelity,options.RenderFidelity);
     elseif union:IsA("PartOperation") then
-        new=Services.GeometryService:UnionAsync(centeredPart,{union},options)[1];
+        new=geometryService:UnionAsync(centeredPart,{union},options)[1];
     end;
     union:SubstituteGeometry(new);
     new:Destroy();
@@ -121,20 +124,12 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
     if not suc then
         warn("Failed to get data: "..res);
     else
-        print_if_debug(res);
-        local replicated=Services.ReplicatedStorage;
-        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder",replicated);
+        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder");
+        loadFolder.Parent=replicated;
         loadFolder.Name="UnionOperationLoadCache";
         local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
-        local tocheck=model:GetDescendants();
-        for i=1,#tocheck do
-            local inst=tocheck[i];
-            if inst:IsA("BaseScript") then
-                inst:Destroy();
-                warn_if_debug("Union ChildData attempted to include a script: ", inst:GetFullName());
-            end;
-        end;
         local function reconstruct(model:Model)
+            if not model then return end;
             local partToAttachTo=nil;
             local theparts=model:GetChildren();
             local negativeParts={};
@@ -145,7 +140,6 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
             end;
             partToAttachTo=theparts[1];
             if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
-                print_if_debug("found");
                 table.insert(negativeParts,partToAttachTo);
                 local old=partToAttachTo;
                 partToAttachTo=Instance.new("Part");
@@ -157,14 +151,12 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
                 partToAttachTo.Name="UnionBasePart";
                 partToAttachTo.Parent=model;
             end;
-            local toConnect=model:GetChildren();
-            for i=1,#toConnect do
-                v=toConnect[i];
+            for i=1,#theparts do
+                v=theparts[i];
                 if v:IsA("BasePart") then
                     v.CFrame=worldCFrame*v.CFrame;
                     if v~=partToAttachTo then
                         if v:GetAttribute("IsNegateOperation") then
-                            print_if_debug("found");
                             table.insert(negativeParts,v);
                         else
                             table.insert(parts,v);
@@ -204,8 +196,8 @@ function mod:applyChildData(childData,worldCFrame:CFrame,options:UnionOptions,is
                 warn("Union operation failed: "..tostring(Union));
                 return nil;
             end;
-            for i=1,#toConnect do
-                v=toConnect[i];
+            for i=1,#theparts do
+                v=theparts[i];
                 if v:IsA("BasePart") and v~=partToAttachTo then
                     v:Destroy();
                 end;
@@ -227,20 +219,12 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
     if not suc then
         warn("Failed to get data: "..res);
     else
-        print_if_debug(res);
-        local replicated=Services.ReplicatedStorage;
-        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder",replicated);
+        local loadFolder=replicated:FindFirstChild("UnionOperationLoadCache") or Instance.new("Folder");
+        loadFolder.Parent=replicated;
         loadFolder.Name="UnionOperationLoadCache";
         local model=self.modules.modelAssembler:buildAsset({modelData=res},loadFolder);
-        local tocheck=model:GetDescendants();
-        for i=1,#tocheck do
-            local inst=tocheck[i];
-            if inst:IsA("BaseScript") then
-                inst:Destroy();
-                warn_if_debug("Union ChildData attempted to include a script: ", inst:GetFullName());
-            end;
-        end;
         local function reconstruct(model)
+            if not model then return end;
             local partToAttachTo=nil;
             local theparts=model:GetChildren();
             local negativeParts={};
@@ -263,14 +247,12 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
                 partToAttachTo.Name="UnionBasePart";
                 partToAttachTo.Parent=model;
             end;
-            local toConnect=model:GetChildren();
-            for i=1,#toConnect do
-                v=toConnect[i];
+            for i=1,#theparts do
+                v=theparts[i];
                 if v:IsA("BasePart") then
                     v.CFrame=worldCFrame*v.CFrame;
                     if v~=partToAttachTo then
                         if v:GetAttribute("IsNegateOperation") then
-                            print_if_debug("found");
                             table.insert(negativeParts,v);
                         else
                             table.insert(parts,v);
@@ -281,9 +263,9 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
             local old=partToAttachTo;
             local suc,Union=pcall(function()
                 if isIntersection then
-                    partToAttachTo=Services.GeometryService:IntersectAsync(partToAttachTo,parts,options)[1];
+                    partToAttachTo=geometryService:IntersectAsync(partToAttachTo,parts,options)[1];
                     partToAttachTo.Parent=loadFolder;
-                    partToAttachTo=Services.GeometryService:IntersectAsync(old,{partToAttachTo},options)[1]; -- this is odd but fixes the problems
+                    partToAttachTo=geometryService:IntersectAsync(old,{partToAttachTo},options)[1]; -- this is odd but fixes the problems
                     partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     centerUnionPivot(partToAttachTo,options,partToAttachTo.Parent);
@@ -291,14 +273,14 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
                     return partToAttachTo;
                 end;
                 print_if_debug(parts);
-                partToAttachTo=Services.GeometryService:UnionAsync(partToAttachTo,parts,options)[1];
+                partToAttachTo=geometryService:UnionAsync(partToAttachTo,parts,options)[1];
                 partToAttachTo.Parent=model;
                 partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                 old:Destroy();
                 old=partToAttachTo;
                 print_if_debug(negativeParts);
                 if #negativeParts~=0 then
-                    partToAttachTo=Services.GeometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
+                    partToAttachTo=geometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
                     partToAttachTo.Parent=loadFolder;
                     partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
                     old:Destroy();
@@ -310,8 +292,8 @@ function mod:applyChildDataNew(childData,worldCFrame:CFrame,options:UnionOptions
                 warn("Union operation failed: "..tostring(Union));
                 return nil;
             end;
-            for i=1,#toConnect do
-                v=toConnect[i];
+            for i=1,#theparts do
+                v=theparts[i];
                 if v:IsA("BasePart") and v~=partToAttachTo then
                     v:Destroy();
                 end;

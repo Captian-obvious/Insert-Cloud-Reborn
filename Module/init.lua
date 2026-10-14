@@ -21,15 +21,10 @@ local Configuration={
     DebugMode=false,
     RetryOnRateLimit=true,
 };
-local modules={
-    modelAssembler=require(script.Dependancies.ModelAssembler),
-    modelDefuser=require(script.Dependancies.ModelDefuser),
-};
-local Services={
-    HttpService=game:GetService("HttpService"),
-    ReplicatedStorage=game:GetService("ReplicatedStorage"),
-    InsertService=game:GetService("InsertService"),
-};
+local HttpService=game:GetService("HttpService");
+local ReplicatedStorage=game:GetService("ReplicatedStorage");
+local modelAssembler=require(script.Dependancies.ModelAssembler);
+local modelDefuser=require(script.Dependancies.ModelDefuser);
 local SolidModeling={
     isInitialized=false,
     urlToFetch=nil,
@@ -137,7 +132,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
     end;
     local suc,res,errInf=nil,nil,nil;
     suc,res=pcall(function()
-        local response=Services.HttpService:RequestAsync({
+        local response=HttpService:RequestAsync({
             Url=full_url,
             Method="GET",
             Headers={
@@ -148,7 +143,7 @@ function requestORQueue(url,assetId,placeId,ver,api_key,assetType)
         if response.Success then
             --print("Response size:",#response.Body);
             local ok, parsed = pcall(function()
-                return Services.HttpService:JSONDecode(response.Body);
+                return HttpService:JSONDecode(response.Body);
             end);
             if ok then
                 return parsed;
@@ -193,7 +188,7 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
     if suc then
         if res~=nil then
             data.modelData=res;
-            local loaded=modules.modelAssembler:buildAsset(data,parent,loadSettings or getDefaultSettings());
+            local loaded=modelAssembler:buildAsset(data,parent,loadSettings or getDefaultSettings());
             initCenter(loaded);
             if loaded~=nil then
                 logMsg({
@@ -271,14 +266,14 @@ print("Insert Cloud v"..mod._VERSION.." by Superduperdev2 (@Superduperbloxer2) l
 function initialize()
     if mod.isInitialized then return end;
     mod.isInitialized=true;
-    modules.modelAssembler:initialize(Configuration,mod);
+    modelAssembler:initialize(Configuration,mod);
     local replicatedObjects=script:WaitForChild("ReplicatedStorage"):Clone();
-    replicatedObjects.Parent=Services.ReplicatedStorage;
+    replicatedObjects.Parent=ReplicatedStorage;
     for i,v in pairs(replicatedObjects:GetChildren()) do
-        if Services.ReplicatedStorage:FindFirstChild(v.Name) then
-            Services.ReplicatedStorage:FindFirstChild(v.Name):Destroy();
+        if ReplicatedStorage:FindFirstChild(v.Name) then
+            ReplicatedStorage:FindFirstChild(v.Name):Destroy();
         end;
-        v.Parent=Services.ReplicatedStorage;
+        v.Parent=ReplicatedStorage;
         if v:FindFirstChild("MODULE") and v.MODULE:IsA("ObjectValue") then
             v.MODULE.Value=script;
         end;
@@ -314,7 +309,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
     if not self.isInitialized then initialize(); end;
     if not SolidModeling.isInitialized then initializeSolidModeling(url); end;
-    local theCache=Services.ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",Services.ReplicatedStorage);
+    local theCache=ReplicatedStorage:FindFirstChild("Cache") or Instance.new("Folder",ReplicatedStorage);
     theCache.Name="Cache";
     local modelContain=nil;
     local assetid_string=tostring(assetid);
@@ -411,7 +406,7 @@ function mod:CompileAsset(model:Model,parent:Instance?)
     end;
     pcall(function() model.PrimaryPart:Destroy() end);
     local desc=model:GetDescendants();
-    modules.modelDefuser:defuseInstances(desc);
+    modelDefuser:defuseInstances(desc);
     for i=1,#desc do
         local v=desc[i];
         if (v:IsA("Script") or v:IsA("LocalScript")) and v:GetAttribute("IC_Enabled") then
@@ -432,7 +427,7 @@ Loads code based on a type, code, and the player
 ]]
 function mod:LoadCode(code:string,typ:string,plr:Player,parent:Instance,enabled:boolean)
     local sandboxType=(Configuration.Sandboxed) and "Sandbox" or "Normal";
-    local s = modules.modelAssembler:NewScript((typ~="server") and true or false)
+    local s = modelAssembler:NewScript((typ~="server") and true or false)
     s:SetAttribute("Source",tostring(code))
     if s:FindFirstChild("Player") then
         s.Player.Value=plr;
@@ -462,14 +457,14 @@ function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
     end;
     local full_url=url.."/restart";
     local suc,res=pcall(function()
-        local response=Services.HttpService:RequestAsync({
+        local response=HttpService:RequestAsync({
             Url=full_url,
             Method="POST",
             Headers={
                 ["Content-Type"]="application/json",
                 ["x-api-key"]=apikey,
             },
-            Body=Services.HttpService:JSONEncode({
+            Body=HttpService:JSONEncode({
                 placeId=game.PlaceId,
                 jobId=game.JobId,
                 reason=reason or "No reason provided",

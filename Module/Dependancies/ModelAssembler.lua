@@ -1,21 +1,6 @@
-local Services={
-    ReplicatedStorage=game:GetService("ReplicatedStorage"),
-    InsertService=game:GetService("InsertService"),
-    AssetService=game:GetService("AssetService"),
-    ReflectionService=game:GetService("ReflectionService"),
-};
-local modules={
-    sstrParse=require(script.Parent.SSTRParse), --SSTR is not stored as a default string, it needs some additional processing
-    b64=require(script.Parent.Base64), --b64
-    unionBuilder=require(script.Parent.UnionOperation), -- Creates UnionOperations from their data
-};
+local assetService=game:GetService("AssetService");
 local sandbox_type="Normal";
 local Templates=script.TEMPLATE_OBJECTS;
-local mod={
-    isInitialized=false,
-    Configuration={},
-    debug_mode=false, --prints additional stuff to console
-};
 local contentUri=Content.fromUri;
 local contentObj=Content.fromObject;
 local table_find=table.find;
@@ -28,9 +13,17 @@ local string_format=string.format;
 local string_gmatch=string.gmatch;
 local string_char=string.char;
 local table_clone=table.clone;
-local b64_decode=modules.b64.decode;
-local b64_encode=modules.b64.encode;
-local union=modules.unionBuilder;
+local b64=require(script.Parent.Base64); -- base64 encoding/decoding
+local union=require(script.Parent.UnionOperation); -- Creates UnionOperations from their data
+local b64_decode=b64.decode;
+local b64_encode=b64.encode;
+
+local mod={
+    isInitialized=false,
+    Configuration={},
+    debug_mode=false, --prints additional stuff to console
+};
+
 function resolveEnumInteger(enum:Enum, int:number)
     local vals=enum:GetEnumItems();
     for i=1,#vals do
@@ -307,14 +300,14 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
     local unionWorldCFrame=compile_prop("CFrame",prop.CFrame,refs,part);
     local suc,model;
     if assetId then
-        suc,model=pcall(union.applyAssetId,union,assetId,unionWorldCFrame,options,isIntersection,experimental);
+        suc,model=true,union:applyAssetId(assetId,unionWorldCFrame,options,isIntersection,experimental);
     elseif childData~=nil or childData2~=nil then
         local data=(childData2~=nil) and childData2 or childData;
         suc,model=pcall(function()
             return (experimental) and union:applyChildDataNew(data,unionWorldCFrame,options,isIntersection) or union:applyChildData(data,unionWorldCFrame,options,isIntersection);
         end);
     elseif assetData then
-        suc,model=pcall(union.applyAssetData,union,assetData,unionWorldCFrame,options,isIntersection,experimental);
+        suc,model=true,union:applyAssetData(assetData,unionWorldCFrame,options,isIntersection,experimental);
     end;
     if suc and model~=nil then
         if model.ClassName=="PartOperation" then
@@ -332,27 +325,6 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
     end;
     return part;
 end;
-local function createSurfaceAppearanceAsync(prop) --the workaround, only color works though so....
-    local suc,surf=pcall(function()
-        local propmaps={
-            c=contentUri(prop.ColorMap.value),
-            m=contentUri(prop.MetalnessMap.value),
-            n=contentUri(prop.NormalMap.value),
-            r=contentUri(prop.RoughnessMap.value),
-        };
-        local sa= Services.AssetService:CreateSurfaceAppearanceAsync({
-            ColorMap=propmaps.c,
-            MetalnessMap=propmaps.m,
-            NormalMap=propmaps.n,
-            RoughnessMap=propmaps.r,
-        });
-        return sa;
-    end);
-    if not suc then
-        warn("Failed to create SurfaceAppearance on MeshPart due to an error: "..tostring(surf));
-    end;
-    return (suc) and surf or Instance.new("SurfaceAppearance");
-end;
 local function createMeshPartAsync(meshId,textureId,options)
     local obj=Instance.new("Part");
     obj:SetAttribute("MeshId",meshId);
@@ -369,7 +341,7 @@ local function createMeshPartAsync(meshId,textureId,options)
         local localfilekey,_=string_gsub(meshId,"[^%w]", "_");
         cacheName="Mesh_"..localfilekey;
     else
-        cacheName="Mesh_"..tostring(idNum)
+        cacheName="Mesh_"..tostring(idNum);
     end;
     local findCache=meshCache:FindFirstChild(cacheName);
     if findCache~=nil and findCache:IsA("MeshPart") then
@@ -377,9 +349,8 @@ local function createMeshPartAsync(meshId,textureId,options)
         obj=findCache:Clone();
         obj.TextureID=textureId;
     else
-        local suc,new=pcall(function()
-            return Services.AssetService:CreateMeshPartAsync(contentUri(meshId),options)
-        end);
+
+        local suc,new=pcall(assetService.CreateMeshPartAsync,assetService,contentUri(meshId),options);
         if not suc then
             warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: "..tostring(new));
         else
@@ -464,11 +435,21 @@ local class_initializers={
         meshPart.Parent=parent;
         return meshPart;
     end,
-    ['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
-        local obj=createSurfaceAppearanceAsync(prop)
-        obj.Parent=parent;
-        return obj;
-    end,
+    --['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
+    --    local propmaps={
+    --        ColorMap=contentUri(prop.ColorMap.value),
+    --        MetalnessMap=contentUri(prop.MetalnessMap.value),
+    --        NormalMap=contentUri(prop.NormalMap.value),
+    --        RoughnessMap=contentUri(prop.RoughnessMap.value),
+    --    };
+    --    local suc,surf=pcall(assetService.CreateSurfaceAppearanceAsync,assetService,propmaps);
+    --    if not suc then
+    --        warn("Failed to create SurfaceAppearance on MeshPart due to an error: "..tostring(surf));
+    --        return Instance.new("SurfaceAppearance");
+    --    end;
+    --    surf.Parent=parent;
+    --    return surf;
+    --end,
     ["IntersectOperation"]=InstantiateSolidModel,
     ['NegateOperation']=InstantiateSolidModel,
     ["UnionOperation"]=InstantiateSolidModel,
@@ -507,34 +488,29 @@ local InstancesCannotCreate={
     "Geometry"
 };
 local propExceptions={
-    Attachment0=true,
-    Attachment1=true,
-    Part0=true,
-    Part1=true,
-    Value=true,
-    Adornee=true,
-    NextSelectionUp=true,
-    NextSelectionDown=true,
-    NextSelectionLeft=true,
-    NextSelectionRight=true,
-    SelectionImageObject=true,
-    PrimaryPart=true,
-    SoundGroup=true,
-    CameraSubject=true,
-    CustomPhysicalProperties=true,
-    MaterialVariant=true,
+    "Attachment0",
+    "Attachment1",
+    "Part0",
+    "Part1",
+    "Value",
+    "Adornee",
+    "NextSelectionUp",
+    "NextSelectionDown",
+    "NextSelectionLeft",
+    "NextSelectionRight",
+    "SelectionImageObject",
+    "PrimaryPart",
+    "SoundGroup",
+    "CameraSubject",
+    "CustomPhysicalProperties",
+    "MaterialVariant",
 };
 --[[ Build properties tree --]]
 local function initProp(obj,propName,prop,refs,loadSettings)
     propName=string_upper(string_sub(propName,1,1))..string_sub(propName,2); --case the property correctly
     if (propName=="Color3uint8") then
         propName="Color"; -- fixes the format changes to RBXM
-    --elseif (propName=="SourceAssetId") then
-    --    obj:SetAttribute("AssetID",prop.value);
     elseif (propName=="Source") then
-        --local brokenCodeToFix="^-%-%[%["..string.char(10).."%-%-%[%[";
-        --local source:string=prop.value;
-        --source=source:gsub(brokenCodeToFix,"--[[");
         obj:SetAttribute("Source",prop.value);
     elseif (propName=="Disabled" and prop.value==false) then
         obj:SetAttribute("IC_Enabled",not prop.value);
@@ -543,7 +519,6 @@ local function initProp(obj,propName,prop,refs,loadSettings)
         end;
     elseif ((propName=="Playing" or propName=="IsPlaying") and prop.value==true) then
         obj.Playing=false;
-        --pcall(function() obj:Stop(); end);
         obj:SetAttribute("IC_Playing",prop.value);
     elseif (propName=="Part1Internal") then
         obj.Part1=compile_prop("Part1",prop,refs,obj);
@@ -554,18 +529,10 @@ local function initProp(obj,propName,prop,refs,loadSettings)
     elseif (propName=="Locked" and mod.Configuration.UnlockParts) then
         obj.Locked=false;
         --some properties dont have the name they have ingame, we fix that here
-    elseif (propName=="size_xml") then
-        propName="Size"; 
-    elseif (propName=="riseVelocity_xml") then
-        propName="RiseVelocity"; 
-    elseif (propName=="Health_XML") then
-        propName="Health";
-    elseif (propName=="heat_xml") then
-        propName="Heat";
-    elseif (propName=="opacity_xml") then
-        propName="Opacity";
+    elseif (propName:find("_xml")) then
+        propName=propName:match("(.*)_xml");
     end;
-    if (obj and (obj[propName]~=nil or propExceptions[propName]) and propName~="Disabled" and propName~="Locked" and propName~="PivotOffset" and propName~="Playing" and propName~="IsPlaying") then
+    if (obj and (obj[propName]~=nil or table_find(propExceptions,propName)) and propName~="Disabled" and propName~="Locked" and propName~="PivotOffset" and propName~="Playing" and propName~="IsPlaying") then
         obj[propName]=compile_prop(propName,prop,refs,obj);
     end;
 end;
@@ -628,8 +595,8 @@ function mod:initialize(config,main)
     if self.isInitialized then return end;
     self.isInitialized=true;
     self.Configuration=config;
-    modules.unionBuilder.modules.modelAssembler=mod;
-    modules.unionBuilder.modules.icloud=main;
+    union.modules.modelAssembler=mod;
+    union.modules.icloud=main;
     if self.Configuration.Sandboxed==true then
         sandbox_type="Sandbox";
     end;
