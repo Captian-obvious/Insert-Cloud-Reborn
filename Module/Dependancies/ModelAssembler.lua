@@ -33,6 +33,10 @@ function print_if_debug(...)
         print(...);
     end;
 end;
+local templateCache = {};
+for _, child in ipairs(Templates:GetChildren()) do
+    templateCache[child.Name] = child;
+end;
 local propertyTypes={
     -- things that need additonal parsing go here
     ["string"]=function(typed,value,refs,encoded)
@@ -47,17 +51,17 @@ local propertyTypes={
             return "";
         end;
     end,
-    ["content"]=function(typed,value,refs,contentType)
-        if typed~="content" then return end;
-        if value=="" or value==nil then return end;
-        if contentType=="obj" then
-            return Content.fromObject(refs[value+1]); -- object references are base-0
-        elseif contentType=="uri" then
-            return Content.fromUri(value);
-        else
-            return Content.fromUri(value); -- default to uri
-        end;
-    end,
+    --["content"]=function(typed,value,refs,contentType)
+    --    if typed~="content" then return end;
+    --    if value=="" or value==nil then return end;
+    --    if contentType=="obj" then
+    --        return Content.fromObject(refs[value+1]); -- object references are base-0
+    --    elseif contentType=="uri" then
+    --        return Content.fromUri(value);
+    --    else
+    --        return Content.fromUri(value); -- default to uri
+    --    end;
+    --end,
     ["sharedstr"]=function(typed,value,refs)
         if typed=="sharedstr" then
             return modules.sstrParse:ParseSharedStr(value);
@@ -382,23 +386,23 @@ local blocked_classes={
 };
 local class_initializers={
     ["Script"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=Templates:FindFirstChild(sandbox_type..class_name):Clone();
+        local object=templateCache[sandbox_type..class_name]:Clone();
         object.Parent=parent;
         object.Enabled=false;
         return object;
     end,
     ["LocalScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=Templates:FindFirstChild(sandbox_type..class_name):Clone();
+        local name=sandbox_type..class_name;
         if loadSettings.EnableLegacyClientScripts then
-            object:Destroy();
-            object=Templates:FindFirstChild(sandbox_type..class_name.."Legacy"):Clone();
+            name=name.."Legacy";
         end;
+        local object=templateCache[name]:Clone();
         object.Parent=parent;
         object.Enabled=false;
         return object;
     end,
     ["ModuleScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=Templates:FindFirstChild(sandbox_type..class_name):Clone();
+        local object=templateCache[sandbox_type..class_name]:Clone();
         object.Parent=parent;
         return object;
     end,
@@ -458,16 +462,9 @@ local class_initializers={
         local humanoid=Instance.new("Humanoid");
         humanoid.Parent=parent;
         humanoid.MaxHealth=prop.MaxHealth.value or 100;
-        local suc,res=pcall(function() return prop.Health.value end);
-        suc,res=pcall(function() return prop.Health_XML.value end);
-        humanoid.Health=(suc) and res or humanoid.MaxHealth;
+        local healthprop=prop.Health or prop.Health_XML;
+        humanoid.Health=(healthprop~=nil and healthprop.value~=nil) and compile_prop("Health",healthprop,refs,class_name) or humanoid.MaxHealth;
         return humanoid;
-    end,
-    ["DialogChoice"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        return nil;
-    end,
-    ["Dialog"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        return nil;
     end,
     ["PackageLink"]=function(class_name,parent,inst,prop,refs,loadSettings)
         local obj=Instance.new("Folder");
@@ -487,12 +484,6 @@ local class_initializers={
         obj.Parent=parent;
         obj.Name="Geometry";
         return obj;
-    end,
-    ["Message"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        return nil;
-    end,
-    ["Hint"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        return nil;
     end
 };
 local InstancesCannotCreate={
@@ -528,8 +519,8 @@ function compile_prop(prop,v,refs,class)
             new=compile(typed,value,refs,{propName=prop,classInstance=class});
         elseif typed=="string" then
             new=compile(typed,value,refs,v.enc);
-        elseif typed=="content" then
-            new=compile(typed,value,refs,v.ctyp);
+        --elseif typed=="content" then
+        --    new=compile(typed,value,refs,v.ctyp);
         else
             new=compile(typed,value,refs);
         end;
@@ -558,13 +549,12 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
     refs=refs or {};
     loadSettings=loadSettings or {};
     local instances={};
-    local hierarcy={parent};
-    local depth={rbxmtree};
-    local function build(base,parent,rbxmtree)
-        table.remove(hierarcy,1);
-        table.remove(depth,1);
-        for i=1,#rbxmtree do
-            local inst=rbxmtree[i];
+    local hierarcy={{parent,rbxmtree}};
+    while #hierarcy>0 do
+        local parent,tree=unpack(hierarcy[#hierarcy]);
+        hierarcy[#hierarcy]=nil;
+        for i=1,#tree do
+            local inst=tree[i];
             local classname=inst.ClassName;
             if (not table.find(blocked_classes,inst.ClassName)) then
                 local instance;
@@ -584,24 +574,26 @@ function mod.buildModel(base,parent,rbxmtree,refs,loadSettings)
                     refs[inst.Ref+1]=instance; -- refs are base-0
                     instances[instance]=inst;
                     if #inst.children>0 then
-                        table.insert(hierarcy,instance)
-                        table.insert(depth,inst.children)
+                        hierarcy[#hierarcy+1]={instance,inst.children};
                     end;
                 end;
             end;
         end;
     end;
-    while #hierarcy>0 do
-        build(base,hierarcy[1],depth[1]);
-    end;
     mod.buildProps(instances,refs,loadSettings);
-    if loadSettings.ApplyAttributes then
-        mod.buildAttr(instances,refs); --attributes are applied after properties for consistency
-    end;
 end;
+--local precased_props={};
+--function caseProp(prop)
+--    if precased_props[prop] then
+--        return precased_props[prop];
+--    end
+--    local cased=string.upper(string.sub(prop,1,1))..string.sub(prop,2);
+--    precased_props[prop]=cased;
+--    return cased;
+--end;
 --[[ Build properties tree --]]
 function initProp(obj,propName,prop,refs,loadSettings)
-    propName=string.upper(string.sub(propName, 0, 1))..string.sub(propName,2); --case the property correctly
+    propName=string.upper(string.sub(propName,1,1))..string.sub(propName,2); --case the property correctly
     if (propName=="Color3uint8") then
         propName="Color"; -- fixes the format changes to RBXM
     elseif (propName=="SourceAssetId") then
@@ -660,24 +652,11 @@ function mod.buildProps(instances,refs,loadSettings)
                 warn("Failed to apply property "..propName.." to instance: "..tostring(err));
             end;
         end;
-    end;
-end;
---[[ Build attributes tree --]]
-function mod.buildAttr(instances,refs)
-    for obj,inst in pairs(instances) do
-        task.spawn(function()
-            local attributes=inst.attributes or {};
-            for attrName,attr in pairs(attributes) do
-                local suc,err=pcall(function()
-                    if (obj) then
-                        obj:SetAttribute(attrName,compile_prop(attrName,attr,refs,obj));
-                    end;
-                end);
-                if not suc and mod.debug_mode then
-                    warn("Failed to apply attribute "..attrName.." to instance: "..tostring(err));
-                end;
+        if loadSettings and loadSettings.ApplyAttributes and inst.attributes~=nil and type(inst.attributes)=="table" then
+            for attrName,attr in pairs(inst.attributes) do
+                obj:SetAttribute(attrName,compile_prop(attrName,attr,refs,obj));
             end;
-        end);
+        end;
     end;
 end;
 --[[ Builds asset from its tree and related data --]]
@@ -698,10 +677,10 @@ function mod:buildAsset(data,root_parent,loadSettings)
 end;
 --[[ Creates a Script or LocalScript --]]
 function mod:NewScript(isLocal)
-    local object=Templates:FindFirstChild(sandbox_type.."Script"):Clone();
     if isLocal then
-        object=Templates:FindFirstChild(sandbox_type.."LocalScript"):Clone();
-    end
-    return object;
+        return templateCache[sandbox_type.."LocalScript"]:Clone();
+    else
+        return templateCache[sandbox_type.."Script"]:Clone();
+    end;
 end;
 return mod;
