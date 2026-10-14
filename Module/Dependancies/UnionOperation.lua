@@ -31,34 +31,32 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection:boo
         warn("AssetId is not a string.");
         return nil;
     end;
-    local loadable=nil;
     local id=assetId:match("(%d+)$");
-    if id then
-        local assetIdToLoad=tonumber(id);
-        local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
-        if not childData then
-            warn("Failed to load SolidModel asset with ID "..tostring(assetIdToLoad)..". Make sure the asset ID is correct and the asset is a valid SolidModel.");
-            return nil;
-        end;
-        local cacheName="Union_"..tostring(assetIdToLoad);
-        local findCache=unionCache[cacheName];
-        if findCache then
-            return findCache:Clone();
-        else
-            local thefunc;
-            if isExperimental then
-                thefunc=self.applyChildDataNew;
-            else
-                thefunc=self.applyChildData;
-            end;
-            loadable=thefunc(self,childData,options,isIntersection);
-            if loadable then
-                unionCache[cacheName]=loadable;
-                return loadable:Clone();
-            end;
-        end;
-    else
+    if not id then
         warn("Asset ID is not valid. Make sure you have the correct asset ID for the union you want to insert.");
+    end;
+    local assetIdToLoad=tonumber(id);
+    local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
+    if not childData then
+        warn("Failed to load SolidModel asset with ID "..id..". Make sure the asset ID is correct and the asset is a valid SolidModel.");
+        return nil;
+    end;
+    local cacheName="Union_"..id;
+    local findCache=unionCache[cacheName];
+    if findCache then
+        return findCache:Clone();
+    else
+        local thefunc;
+        if isExperimental then
+            thefunc=self.applyChildDataNew;
+        else
+            thefunc=self.applyChildData;
+        end;
+        local loadable=thefunc(self,childData,options,isIntersection);
+        if loadable then
+            unionCache[cacheName]=loadable;
+            return loadable:Clone();
+        end;
     end;
     return nil;
 end;
