@@ -34,6 +34,7 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection:boo
     local id=assetId:match("(%d+)$");
     if not id then
         warn("Asset ID is not valid. Make sure you have the correct asset ID for the union you want to insert.");
+        return nil;
     end;
     local assetIdToLoad=tonumber(id);
     local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
