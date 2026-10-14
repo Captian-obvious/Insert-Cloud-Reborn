@@ -18,6 +18,7 @@ local mod={
 local contentUri=Content.fromUri;
 local contentObj=Content.fromObject;
 local table_find=table.find;
+local resolvedEnumCache={};
 function resolveEnumInteger(enum:Enum, int:number)
     local vals=enum:GetEnumItems();
     for i=1,#vals do
@@ -27,7 +28,7 @@ function resolveEnumInteger(enum:Enum, int:number)
         end;
     end;
     if int >= 0 and int < #vals then
-        return vals[int + 1]; -- Lua is 1-based
+        return vals[int + 1];-- Lua is 1-based
     end;
     return vals[1];
 end;
