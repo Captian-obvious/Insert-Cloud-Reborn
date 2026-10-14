@@ -23,7 +23,6 @@ local Configuration={
 };
 local modules={
     modelAssembler=require(script.Dependancies.ModelAssembler),
-    unionBuilder=require(script.Dependancies.UnionOperation),
     modelDefuser=require(script.Dependancies.ModelDefuser),
 };
 local Services={
@@ -196,7 +195,6 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
             data.modelData=res;
             local loaded=modules.modelAssembler:buildAsset(data,parent,loadSettings or getDefaultSettings());
             initCenter(loaded);
-            modules.modelDefuser:defuseModel(loaded);
             if loaded~=nil then
                 logMsg({
                     MessageType="info",
@@ -413,6 +411,7 @@ function mod:CompileAsset(model:Model,parent:Instance?)
     end;
     pcall(function() model.PrimaryPart:Destroy() end);
     local desc=model:GetDescendants();
+    modules.modelDefuser:defuseInstances(desc);
     for i=1,#desc do
         local v=desc[i];
         if (v:IsA("Script") or v:IsA("LocalScript")) and v:GetAttribute("IC_Enabled") then
