@@ -388,6 +388,9 @@ end;
 function mod:ClearCache()
     insertCloudCache={};
 end;
+function mod:RemoveFromCache(assetId:number)
+    insertCloudCache[tostring(assetId)]=nil;
+end;
 --[[ 
 Fixes model for completion of inserted object, insert tool also calls this for security 
 ]]
