@@ -116,7 +116,7 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
         warn("Parse Failed: "..res);
         return nil;
     end;
-    local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
+    local model=self.modules.modelAssembler:buildAsset({modelData=res},replicated);
     local function reconstruct(model:Model)
         if not model then return end;
         local partToAttachTo=nil;
@@ -209,7 +209,7 @@ function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection:boo
         warn("Parse Failed: "..res);
         return nil;
     end;
-    local model=self.modules.modelAssembler:buildAsset({modelData=res},script);
+    local model=self.modules.modelAssembler:buildAsset({modelData=res},replicated);
     local function reconstruct(model:Model)
         if not model then return end;
         local partToAttachTo=nil;
