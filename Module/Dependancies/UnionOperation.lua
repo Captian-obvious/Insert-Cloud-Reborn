@@ -1,5 +1,4 @@
 local geometryService=game:GetService("GeometryService");
-local replicated=game:GetService("ReplicatedStorage");
 local mod={
     _VERSION="9.0.0",
     modules={
@@ -116,7 +115,7 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
         warn("Parse Failed: "..res);
         return nil;
     end;
-    local model=self.modules.modelAssembler:buildAsset({modelData=res},replicated);
+    local model=self.modules.modelAssembler:buildAsset({modelData=res},geometryService);
     local function reconstruct(model:Model)
         if not model then return end;
         local partToAttachTo=nil;
@@ -209,7 +208,7 @@ function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection:boo
         warn("Parse Failed: "..res);
         return nil;
     end;
-    local model=self.modules.modelAssembler:buildAsset({modelData=res},replicated);
+    local model=self.modules.modelAssembler:buildAsset({modelData=res},geometryService);
     local function reconstruct(model:Model)
         if not model then return end;
         local partToAttachTo=nil;
