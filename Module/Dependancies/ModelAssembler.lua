@@ -5,6 +5,16 @@ local contentUri=Content.fromUri;
 local contentObj=Content.fromObject;
 local table_find=table.find;
 local table_insert=table.insert;
+local table_clone=table.clone;
+local table_remove=table.remove;
+local coroutine_create=coroutine.create;
+local coroutine_resume=coroutine.resume;
+local coroutine_status=coroutine.status;
+local coroutine_running=coroutine.running;
+local coroutine_wrap=coroutine.wrap;
+local task_spawn=task.spawn;
+local task_wait=task.wait;
+local task_delay=task.delay;
 local string_upper=string.upper;
 local string_sub=string.sub;
 local string_gsub=string.gsub;
@@ -268,72 +278,78 @@ local function compile_prop(prop,v,refs,class)
         end;
     end;
 end;
-local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings)
+local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings,workers)
     if loadSettings.DisableSolidModeling then
         -- fallback to old behavior (js make the instance)
         local h=Instance.new(class_name);
         h.Parent=parent;
         return h;
     end;
-    local experimental=loadSettings.ExperimentalUnions;
-    local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string.len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
-    local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string.len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
-    local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string.len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
-    local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string.len(prop.AssetData.value)>0) and prop.AssetData.value or nil;
     local typeToInit=(class_name~="NegateOperation") and class_name or "UnionOperation";
     local isIntersection=(typeToInit=="IntersectOperation");
+    local experimental=loadSettings.ExperimentalUnions;
     local part=Instance.new(typeToInit);
     part.Parent=parent;
-    local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
-    if prop.CollisionFidelity and prop.CollisionFidelity.value then
-        colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
-    end;
-    if prop.RenderFidelity and prop.RenderFidelity.value then
-        rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
-    end;
-    local options={
-        CollisionFidelity=colfidelity,
-        RenderFidelity=rendfidelity,
-        SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
-    };
-    local unionWorldCFrame=compile_prop("CFrame",prop.CFrame,refs,part);
-    local model;
-    if assetId then
-        model=union:applyAssetId(assetId,options,isIntersection,experimental);
-    elseif childData~=nil or childData2~=nil then
-        local data=(childData2~=nil) and childData2 or childData;
-        local thefunc;
-        if experimental then
-            thefunc=union.applyChildDataNew;
-        else
-            thefunc=union.applyChildData;
+    local function applyProps(co:thread)
+        table_insert(workers.unionWorkers,co);
+        local suc,err=pcall(function()
+            local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string.len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
+            local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string.len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
+            local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string.len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
+            local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string.len(prop.AssetData.value)>0) and prop.AssetData.value or nil;
+            local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
+            if prop.CollisionFidelity and prop.CollisionFidelity.value then
+                colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+            end;
+            if prop.RenderFidelity and prop.RenderFidelity.value then
+                rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+            end;
+            local options={
+                CollisionFidelity=colfidelity,
+                RenderFidelity=rendfidelity,
+                SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
+            };
+            local model;
+            if assetId then
+                model=union:applyAssetId(assetId,options,isIntersection,experimental);
+            elseif childData~=nil or childData2~=nil then
+                local data=(childData2~=nil) and childData2 or childData;
+                local thefunc;
+                if experimental then
+                    thefunc=union.applyChildDataNew;
+                else
+                    thefunc=union.applyChildData;
+                end;
+                model=thefunc(union,data,options,isIntersection);
+            elseif assetData then
+                model=union:applyAssetData(assetData,options,isIntersection,experimental);
+            end;
+            
+            if model~=nil then
+                part:SubstituteGeometry(model);
+                model:Destroy();
+            end;
+        end);
+        table_remove(workers.unionWorkers,table_find(workers.unionWorkers,co));
+        if not suc then
+            warn("Error instantiating solid model: "..err);
         end;
-        model=thefunc(union,data,options,isIntersection);
-        --model=union:applyChildDataNew(data,options,isIntersection);
-    elseif assetData then
-        model=union:applyAssetData(assetData,options,isIntersection,experimental);
     end;
-    if model~=nil then
-        --if model.ClassName=="PartOperation" then
-        --    part.Parent=parent;
-        --    part:SubstituteGeometry(model);
-        --    model:Destroy();
-        --else
-        --    part:Destroy();
-        --    part=model;
-        --    part.Parent=parent;
-        --end;
-        part.Parent=parent;
-        part:SubstituteGeometry(model);
-        model:Destroy();
-    end;
+    local co=coroutine_create(applyProps);
+    coroutine_resume(co,co);
+    --task_spawn(function() --watchdog
+    --    task_wait(10);
+    --    if coroutine_status(co)~="dead" then
+    --        table_remove(workers.unionWorkers,table_find(workers.unionWorkers,co));
+    --    end;
+    --end);
     if (class_name=="NegateOperation") or (inst.tags and table_find(inst.tags,"rbxNegated")) then
         part:SetAttribute("IsNegateOperation",true);
     end;
     return part;
 end;
-local function createMeshPartAsync(meshId,textureId,options)
-    local obj=Instance.new("Part");
+local function createMeshPartAsync(meshId,textureId,options):MeshPart
+    local obj=Instance.new("MeshPart");
     obj:SetAttribute("MeshId",meshId);
     obj:SetAttribute("TextureId",textureId);
     local idVal=meshId:match("(%d+)$");
@@ -397,21 +413,20 @@ local class_initializers={
         object.Parent=parent;
         return object;
     end,
-    ["MeshPart"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local fallback=Instance.new("Part");
+    ["MeshPart"]=function(class_name,parent,inst,prop,refs,loadSettings,workers)
+        local meshPart=Instance.new("MeshPart");
         local midprop=prop.MeshId or prop.MeshID or prop.MeshContent;
         local tidprop=prop.TextureID or prop.TextureId or prop.TextureContent;
         if not midprop then
             warn("Failed to generate MeshPart with asset location \""..tostring(midprop).."\" due to error: MeshId is missing.")
-            fallback.Parent=parent;
-            return fallback;
+            meshPart.Parent=parent;
+            return meshPart;
         end;
         local meshId=midprop.value;
         local textureId="";
         if tidprop then
             textureId=tidprop.value;
         end;
-        local meshPart;
         if loadSettings.EnablePreciseMeshParts then
             local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
             if prop.CollisionFidelity and prop.CollisionFidelity.value then
@@ -420,14 +435,24 @@ local class_initializers={
             if prop.RenderFidelity and prop.RenderFidelity.value then
                 rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
             end;
-            meshPart=createMeshPartAsync(meshId,textureId,{
-                CollisionFidelity=colfidelity,
-                RenderFidelity=rendfidelity
-            });
+            local co=coroutine.create(function(co)
+                table_insert(workers.meshWorkers,co);
+                local suc,real=pcall(createMeshPartAsync,meshId,textureId,{
+                    CollisionFidelity=colfidelity,
+                    RenderFidelity=rendfidelity
+                });
+                if suc then
+                    meshPart:ApplyMesh(real);
+                    real:Destroy();
+                end;
+                table_remove(workers.meshWorkers,table_find(workers.meshWorkers,co));
+            end);
+            coroutine.resume(co,co);
         else
+            meshPart:Destroy();
+            meshPart=Instance.new("Part");
             local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
             local OrigSize=compile_prop("Size",prop.size,refs,class_name);
-            meshPart=fallback;
             -- everything else is applied during the properties step so we just need to set up the mesh
             local mesh=Instance.new("SpecialMesh",meshPart);
             mesh.MeshType=Enum.MeshType.FileMesh;
@@ -559,6 +584,8 @@ end;
 local function buildModel(base,parent,rbxmtree,refs,loadSettings)
     refs=refs or {};
     loadSettings=loadSettings or {};
+    local unionWorkers={};
+    local meshWorkers={};
     local instances={};
     local hierarcy={{parent,rbxmtree}};
     while #hierarcy>0 do
@@ -572,7 +599,10 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
                 local classInit=class_initializers[classname];
                 if classInit then
                     --print_if_debug(loadSettings);
-                    instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings);
+                    instance=classInit(classname,parent,inst,inst.properties,refs,loadSettings,{
+                        unionWorkers=unionWorkers,
+                        meshWorkers=meshWorkers,
+                    });
                 else
                     instance=Instance.new(classname);
                     instance.Parent=parent;
@@ -590,6 +620,9 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
                 end;
             end;
         end;
+    end;
+    while #unionWorkers>0 or #meshWorkers>0 do
+        task_wait();
     end;
     buildProps(instances,refs,loadSettings);
     return parent;
