@@ -7,11 +7,6 @@ local table_find=table.find;
 local table_insert=table.insert;
 local table_clone=table.clone;
 local table_remove=table.remove;
-local coroutine_create=coroutine.create;
-local coroutine_resume=coroutine.resume;
-local coroutine_status=coroutine.status;
-local coroutine_running=coroutine.running;
-local coroutine_wrap=coroutine.wrap;
 local task_spawn=task.spawn;
 local task_wait=task.wait;
 local task_delay=task.delay;
@@ -26,6 +21,7 @@ local table_clone=table.clone;
 local Instance_new=Instance.new;
 local b64=require(script.Parent.Base64); -- base64 encoding/decoding
 local union=require(script.Parent.UnionOperation); -- Creates UnionOperations from their data
+local promise=require(script.Parent.Worker); -- Parallelization
 local b64_decode=b64.decode;
 local b64_encode=b64.encode;
 
@@ -291,8 +287,7 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
     local experimental=loadSettings.ExperimentalUnions;
     local part=Instance_new(typeToInit);
     part.Parent=parent;
-    local co=coroutine_create(function(co:thread)
-        workers.unionWorkers[co]=true;
+    local co=promise.spawnWorker(workers.unionWorkers,function()
         local suc,err=pcall(function()
             local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string.len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
             local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string.len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
@@ -330,12 +325,10 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
                 model:Destroy();
             end;
         end);
-        workers.unionWorkers[co]=nil;
         if not suc then
             warn("Error instantiating solid model: "..err);
         end;
     end);
-    coroutine_resume(co,co);
     --task_spawn(function() --watchdog
     --    task_wait(10);
     --    if coroutine_status(co)~="dead" then
@@ -434,8 +427,7 @@ local class_initializers={
             if prop.RenderFidelity and prop.RenderFidelity.value then
                 rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
             end;
-            local co=coroutine.create(function(co)
-                workers.meshWorkers[co]=true;
+            local co=promise.spawnWorker(workers.meshWorkers,function()
                 local suc,real=pcall(createMeshPartAsync,meshId,textureId,{
                     CollisionFidelity=colfidelity,
                     RenderFidelity=rendfidelity
@@ -444,9 +436,7 @@ local class_initializers={
                     meshPart:ApplyMesh(real);
                     real:Destroy();
                 end;
-                workers.meshWorkers[co]=nil;
             end);
-            coroutine.resume(co,co);
         else
             meshPart:Destroy();
             meshPart=Instance_new("Part");
@@ -620,9 +610,8 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
             end;
         end;
     end;
-    while next(unionWorkers) or next(meshWorkers) do
-        task_wait();
-    end;
+    promise.waitForWorkers(unionWorkers);
+    promise.waitForWorkers(meshWorkers);
     buildProps(instances,refs,loadSettings);
     return parent;
 end;
