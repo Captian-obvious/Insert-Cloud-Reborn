@@ -1,4 +1,4 @@
-![diagram](insertserver/assets/images/logoIC.png)
+![logo](insertserver/assets/images/logoIC.png)
 # Insert Cloud Reborn (insertapiv3)
 
 **An alternative to the Roblox `InsertService` & `AssetService:LoadAssetAsync()`**
