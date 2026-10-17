@@ -23,6 +23,7 @@ local string_format=string.format;
 local string_gmatch=string.gmatch;
 local string_char=string.char;
 local table_clone=table.clone;
+local Instance_new=Instance.new;
 local b64=require(script.Parent.Base64); -- base64 encoding/decoding
 local union=require(script.Parent.UnionOperation); -- Creates UnionOperations from their data
 local b64_decode=b64.decode;
@@ -281,17 +282,17 @@ end;
 local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings,workers)
     if loadSettings.DisableSolidModeling then
         -- fallback to old behavior (js make the instance)
-        local h=Instance.new(class_name);
+        local h=Instance_new(class_name);
         h.Parent=parent;
         return h;
     end;
     local typeToInit=(class_name~="NegateOperation") and class_name or "UnionOperation";
     local isIntersection=(typeToInit=="IntersectOperation");
     local experimental=loadSettings.ExperimentalUnions;
-    local part=Instance.new(typeToInit);
+    local part=Instance_new(typeToInit);
     part.Parent=parent;
-    local function applyProps(co:thread)
-        table_insert(workers.unionWorkers,co);
+    local co=coroutine_create(function(co:thread)
+        workers.unionWorkers[co]=true;
         local suc,err=pcall(function()
             local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string.len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
             local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string.len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
@@ -324,18 +325,16 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
             elseif assetData then
                 model=union:applyAssetData(assetData,options,isIntersection,experimental);
             end;
-            
             if model~=nil then
                 part:SubstituteGeometry(model);
                 model:Destroy();
             end;
         end);
-        table_remove(workers.unionWorkers,table_find(workers.unionWorkers,co));
+        workers.unionWorkers[co]=nil;
         if not suc then
             warn("Error instantiating solid model: "..err);
         end;
-    end;
-    local co=coroutine_create(applyProps);
+    end);
     coroutine_resume(co,co);
     --task_spawn(function() --watchdog
     --    task_wait(10);
@@ -349,7 +348,7 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
     return part;
 end;
 local function createMeshPartAsync(meshId,textureId,options):MeshPart
-    local obj=Instance.new("MeshPart");
+    local obj=Instance_new("MeshPart");
     obj:SetAttribute("MeshId",meshId);
     obj:SetAttribute("TextureId",textureId);
     local idVal=meshId:match("(%d+)$");
@@ -414,7 +413,7 @@ local class_initializers={
         return object;
     end,
     ["MeshPart"]=function(class_name,parent,inst,prop,refs,loadSettings,workers)
-        local meshPart=Instance.new("MeshPart");
+        local meshPart=Instance_new("MeshPart");
         local midprop=prop.MeshId or prop.MeshID or prop.MeshContent;
         local tidprop=prop.TextureID or prop.TextureId or prop.TextureContent;
         if not midprop then
@@ -436,7 +435,7 @@ local class_initializers={
                 rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
             end;
             local co=coroutine.create(function(co)
-                table_insert(workers.meshWorkers,co);
+                workers.meshWorkers[co]=true;
                 local suc,real=pcall(createMeshPartAsync,meshId,textureId,{
                     CollisionFidelity=colfidelity,
                     RenderFidelity=rendfidelity
@@ -445,16 +444,16 @@ local class_initializers={
                     meshPart:ApplyMesh(real);
                     real:Destroy();
                 end;
-                table_remove(workers.meshWorkers,table_find(workers.meshWorkers,co));
+                workers.meshWorkers[co]=nil;
             end);
             coroutine.resume(co,co);
         else
             meshPart:Destroy();
-            meshPart=Instance.new("Part");
+            meshPart=Instance_new("Part");
             local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
             local OrigSize=compile_prop("Size",prop.size,refs,class_name);
             -- everything else is applied during the properties step so we just need to set up the mesh
-            local mesh=Instance.new("SpecialMesh",meshPart);
+            local mesh=Instance_new("SpecialMesh",meshPart);
             mesh.MeshType=Enum.MeshType.FileMesh;
             mesh.MeshId=meshId;
             mesh.TextureId=textureId;
@@ -474,7 +473,7 @@ local class_initializers={
     --    local suc,surf=pcall(assetService.CreateSurfaceAppearanceAsync,assetService,propmaps);
     --    if not suc then
     --        warn("Failed to create SurfaceAppearance on MeshPart due to an error: "..tostring(surf));
-    --        return Instance.new("SurfaceAppearance");
+    --        return Instance_new("SurfaceAppearance");
     --    end;
     --    surf.Parent=parent;
     --    return surf;
@@ -484,7 +483,7 @@ local class_initializers={
     ["UnionOperation"]=InstantiateSolidModel,
     ["PartOperation"]=InstantiateSolidModel,
     ["Humanoid"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local humanoid=Instance.new("Humanoid");
+        local humanoid=Instance_new("Humanoid");
         local healthprop=prop.Health or prop.Health_XML;
         humanoid.Parent=parent;
         humanoid.MaxHealth=prop.MaxHealth.value or 100;
@@ -492,20 +491,20 @@ local class_initializers={
         return humanoid;
     end,
     ["PackageLink"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local obj=Instance.new("Folder");
+        local obj=Instance_new("Folder");
         obj.Parent=parent;
         obj.Name="PackageLink";
         --obj:SetAttribute("AssetId",prop.AssetId.value);
         return obj;
     end,
     ["StockSound"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local obj=Instance.new("Folder");
+        local obj=Instance_new("Folder");
         obj.Parent=parent;
         obj.Name="StockSound";
         return obj;
     end,
     ["Geometry"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local obj=Instance.new("Folder");
+        local obj=Instance_new("Folder");
         obj.Parent=parent;
         obj.Name="Geometry";
         return obj;
@@ -604,7 +603,7 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
                         meshWorkers=meshWorkers,
                     });
                 else
-                    instance=Instance.new(classname);
+                    instance=Instance_new(classname);
                     instance.Parent=parent;
                 end;
                 if instance then
@@ -621,7 +620,7 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
             end;
         end;
     end;
-    while #unionWorkers>0 or #meshWorkers>0 do
+    while next(unionWorkers) or next(meshWorkers) do
         task_wait();
     end;
     buildProps(instances,refs,loadSettings);
@@ -642,7 +641,7 @@ end;
 function mod:buildAsset(data,root_parent,loadSettings)
     if self.isInitialized then
         root_parent=root_parent or workspace;
-        local rootModel=Instance.new("Model");
+        local rootModel=Instance_new("Model");
         rootModel.Parent=root_parent;
         rootModel.Name=data.AssetIdParsed or "UNNAMED_ASSET";
         local rbxm=data.modelData; -- this is json that is provided
