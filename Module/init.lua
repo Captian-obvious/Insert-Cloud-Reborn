@@ -1,3 +1,5 @@
+--!optimize 2
+
 local Configuration={
     Caching=true,
     Sandboxed=true,
@@ -352,7 +354,7 @@ function mod:LoadSolidModel(assetid:number)
         return nil;
     end;
     local assetid_string=tostring(assetid);
-    local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,nil,nil,"SolidModel")
+    local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,nil,nil,"SolidModel");
     if not suc then
         logMsg({
             MessageType="error",

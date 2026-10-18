@@ -1,3 +1,5 @@
+--!optimize 2
+
 local geometryService=game:GetService("GeometryService");
 local mod={
     _VERSION="9.0.0",

@@ -1,8 +1,6 @@
-local Services = {
-    ReplicatedStorage = game:GetService("ReplicatedStorage"),
-    Players = game:GetService("Players"),
-    Debris = game:GetService("Debris"),
-};
+--!optimize 2
+
+local Debris = game:GetService("Debris");
 local knownMaliciousScripts={
     "Script, or is it???", -- infamous obfuscator signature
     "Script.....Or is it...",
@@ -14,7 +12,10 @@ local knownMaliciousScripts={
     "Vaccine", --nice try, but we know what you mean
     "Anti-Lag" --ironically, this is often used to cause lag
 };
-local knownMaliciousNames={};
+local knownMaliciousNames={
+    "No samurai plzzz",
+    "Anti Lag",
+};
 local possiblyMaliciousInstances={
     "JointInstance",
     "RotateP",
@@ -31,7 +32,7 @@ function defuseScript(s)
     for _,maliciousName in pairs(knownMaliciousScripts) do
         if string.find(s.Name:lower(),maliciousName:lower()) then
             s.Parent=nil;
-            Services.Debris:AddItem(s,0);
+            Debris:AddItem(s,0);
             return true;
         end;
     end;
@@ -45,7 +46,7 @@ function defuseInstance(inst)
             local tocheck=inst:FindFirstChildWhichIsA("BaseScript");
             if (tocheck) then
                 tocheck.Parent=nil;
-                Services.Debris:AddItem(tocheck,0);
+                Debris:AddItem(tocheck,0);
                 malicious=true;
             end;
         end;
@@ -53,7 +54,7 @@ function defuseInstance(inst)
     for _,maliciousName in pairs(knownMaliciousNames) do
         if string.find(inst.Name:lower(),maliciousName:lower()) then
             inst.Parent=nil;
-            Services.Debris:AddItem(inst,0);
+            Debris:AddItem(inst,0);
             malicious=true;
         end;
     end;
