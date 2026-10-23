@@ -22,6 +22,7 @@ local Configuration={
     DefaultBuildParent=workspace,
     DebugMode=false,
     RetryOnRateLimit=true,
+    MaxChildrenPerFrame=100, --limit how many coroutines can spawn for Unions/MeshParts
 };
 local HttpService=game:GetService("HttpService");
 local ReplicatedStorage=game:GetService("ReplicatedStorage");
