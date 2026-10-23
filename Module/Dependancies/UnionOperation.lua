@@ -15,6 +15,7 @@ export type UnionOptions={
 };
 
 local unionCache={};
+local unionQueue={};
 local b64=require(script.Parent.Base64); --b64
 local parser=require(script.Parent.RobloxFileFormat); --parser
 local b64_decode=b64.decode;
@@ -23,6 +24,7 @@ local table_sort=table.sort;
 local table_remove=table.remove;
 local table_pack=table.pack;
 local table_unpack=table.unpack;
+local task_wait=task.wait;
 
 function parse(data)
     return parser(b64_decode(data));
@@ -38,17 +40,25 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection:boo
         return nil;
     end;
     local assetIdToLoad=tonumber(id);
-    local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
-    if not childData then
-        warn("Failed to load SolidModel asset with ID "..id..". Make sure the asset ID is correct and the asset is a valid SolidModel.");
-        return nil;
-    end;
     local cacheName="Union_"..id;
     local findCache=unionCache[cacheName];
-    if findCache then
+    local isAssetLoading=unionQueue[assetId];
+    if findCache~=nil then
         return findCache:Clone();
+    elseif isAssetLoading then
+        while unionQueue[assetId] do task_wait() end;
+        findCache=unionCache[cacheName];
+        if findCache~=nil then
+            return findCache:Clone();
+        end;
     else
         local thefunc;
+        unionQueue[assetId]=true;
+        local childData=self.modules.icloud:LoadSolidModel(assetIdToLoad);
+        if not childData then
+            warn("Failed to load SolidModel asset with ID "..id..". Make sure the asset ID is correct and the asset is a valid SolidModel.");
+            return nil;
+        end;
         if isExperimental then
             thefunc=self.applyChildDataNew;
         else
@@ -57,8 +67,10 @@ function mod:applyAssetId(assetId:string,options:UnionOptions,isIntersection:boo
         local loadable=thefunc(self,childData,options,isIntersection);
         if loadable then
             unionCache[cacheName]=loadable;
+            unionQueue[assetId]=nil;
             return loadable:Clone();
         end;
+        unionQueue[assetId]=nil;
     end;
     return nil;
 end;
@@ -70,6 +82,7 @@ function mod:applyAssetData(assetData:string,options:UnionOptions,isIntersection
     else
         thefunc=self.applyChildData;
     end;
+    assetData=string.sub(assetData,5);
     local suc,res=pcall(parse,assetData);
     local childData=nil;
     if not suc then
