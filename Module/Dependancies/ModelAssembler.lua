@@ -25,8 +25,11 @@ local string_format=string.format;
 local string_gmatch=string.gmatch;
 local string_char=string.char;
 local string_len=string.len;
+local string_find=string.find;
+local string_match=string.match;
 local table_clone=table.clone;
 local Instance_new=Instance.new;
+local CFrame_new=CFrame.new;
 local b64=require(script.Parent.Base64); -- base64 encoding/decoding
 local union=require(script.Parent.UnionOperation); -- Creates UnionOperations from their data
 local promise=require(script.Parent.Worker); -- Parallelization
@@ -67,6 +70,22 @@ for _, child in ipairs(Templates:GetChildren()) do
 end;
 local meshCache={};
 local loadingMeshes={};
+local function colorFunc(propType,value)
+    if value then
+        if propType=="brickcolor" then
+            if type(value)=="number" then -- why is the internal id of brickcolor "Float"? (roblox, your wierd)
+                return BrickColor.new(value);
+            end;
+        elseif propType=="color3" then
+            return Color3.new(unpack(value));
+        elseif propType=="rgbc3" then
+            return Color3.fromRGB(unpack(value));
+        end;
+    elseif propType=="brickcolor" then
+        return BrickColor.new("Medium stone grey");
+    end;
+    return Color3.new();
+end;
 local propertyTypes={
     -- things that need additonal parsing go here
     ["string"]=function(typed,value,refs,encoded)
@@ -95,7 +114,7 @@ local propertyTypes={
         local classInstance=prop_instance.classInstance;
         if not classInstance then return nil; end;
         local success, defaultVal = pcall(function() return classInstance[propName]; end);
-        if success and typeof(defaultVal) == "EnumItem" then
+        if success then
             return resolveEnumInteger(defaultVal.EnumType,value);
         end;
         warn("Enum inference failed for property:", propName, "on", tostring(classInstance));
@@ -106,15 +125,15 @@ local propertyTypes={
         local rot=value.rotation;
         if pos and rot and #rot==9 then
             local x,y,z=unpack(pos);
-            return CFrame.new(x,y,z,unpack(rot));
+            return CFrame_new(x,y,z,unpack(rot));
         elseif pos then
-            return CFrame.new(Vector3.new(unpack(pos)));
+            return CFrame_new(Vector3.new(unpack(pos)));
         end;
-        return CFrame.new();
+        return CFrame_new();
     end,
     ["qcframe"]=function(typed,value,refs)
-        if not value or #value~=7 then return CFrame.new(); end;
-        return CFrame.new(unpack(value));
+        if not value or #value~=7 then return CFrame_new(); end;
+        return CFrame_new(unpack(value));
     end,
     ["vector3int16"]=function(typed,value,refs)
         if value and #value==3 then
@@ -155,10 +174,7 @@ local propertyTypes={
         return UDim2.new();
     end,
     ["brickcolor"]=function(typed,value,refs)
-        if value and typeof(value)=="number" then -- why is the internal id of brickcolor "Float"? (roblox, what are you doing)
-            return BrickColor.new(value);
-        end;
-        return BrickColor.new("Medium stone grey");
+        return colorFunc(typed,value);
     end,
     ["numberrange"]=function(typed,value,refs)
         if value and #value==2 then
@@ -185,7 +201,7 @@ local propertyTypes={
             for _,kp in pairs(value) do
                 local cskp=kp.cskp;
                 if cskp and typeof(cskp)=="table" then
-                    table_insert(keypoints,ColorSequenceKeypoint.new(cskp.t,Color3.new(cskp.color3[1],cskp.color3[2],cskp.color3[3])));
+                    table_insert(keypoints,ColorSequenceKeypoint.new(cskp.t,colorFunc("color3",cskp.color3)));
                 end;
             end;
             if #keypoints==0 then
@@ -197,16 +213,10 @@ local propertyTypes={
         return ColorSequence.new(Color3.new(1,1,1));
     end,
     ["rgbc3"]=function(typed,value,refs)
-        if value and #value==3 then
-            return Color3.fromRGB(unpack(value));
-        end;
-        return Color3.new();
+        return colorFunc(typed,value);
     end,
     ["color3"]=function(typed,value,refs)
-        if value and #value==3 then
-            return Color3.new(unpack(value));
-        end;
-        return Color3.new();
+        return colorFunc(typed,value);
     end,
     ["physprops"]=function(typed,value,refs)
         if value and #value==6 then
@@ -269,49 +279,50 @@ local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettin
     local experimental=loadSettings.ExperimentalUnions;
     local part=Instance_new(typeToInit);
     part.Parent=parent;
-    spawnWorker(workers,function()
-        local suc,err=pcall(function()
-            local model;
-            local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string_len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
-            local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string_len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
-            local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string_len(prop.AssetData.value)>0) and prop.AssetData.value or nil;
-            local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string_len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
-            local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
-            if prop.CollisionFidelity and prop.CollisionFidelity.value then
-                colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+    --spawnWorker(workers,function()
+    local suc,err=pcall(function()
+        local model;
+        local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string_len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
+        local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string_len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
+        local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string_len(prop.AssetData.value)>0) and prop.AssetData.value or nil;
+        local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string_len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
+        local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
+        if prop.CollisionFidelity and prop.CollisionFidelity.value then
+            colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+        end;
+        if prop.RenderFidelity and prop.RenderFidelity.value then
+            rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+        end;
+        local options={
+            CollisionFidelity=colfidelity,
+            RenderFidelity=rendfidelity,
+            SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
+        };
+        if childData~=nil or childData2~=nil then
+            local data=(childData2~=nil) and childData2 or childData;
+            local thefunc;
+            if experimental then
+                thefunc=union.applyChildDataNew;
+            else
+                thefunc=union.applyChildData;
             end;
-            if prop.RenderFidelity and prop.RenderFidelity.value then
-                rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
-            end;
-            local options={
-                CollisionFidelity=colfidelity,
-                RenderFidelity=rendfidelity,
-                SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
-            };
-            if childData~=nil or childData2~=nil then
-                local data=(childData2~=nil) and childData2 or childData;
-                local thefunc;
-                if experimental then
-                    thefunc=union.applyChildDataNew;
-                else
-                    thefunc=union.applyChildData;
-                end;
-                model=thefunc(union,data,options,isIntersection);
-            elseif assetData~=nil then
-                model=union:applyAssetData(assetData,options,isIntersection,experimental);
-            elseif assetId~=nil then
-                model=union:applyAssetId(assetId,options,isIntersection,experimental);
-            end;
-            if model~=nil then
-                part:SubstituteGeometry(model);
-                model:Destroy();
-            end;
-        end);
-        if not suc then
-            warn("Error instantiating solid model: "..err);
+            model=thefunc(union,data,options,isIntersection);
+        elseif assetData~=nil then
+            model=union:applyAssetData(assetData,options,isIntersection,experimental);
+        elseif assetId~=nil then
+            model=union:applyAssetId(assetId,options,isIntersection,experimental);
+        end;
+        if model~=nil then
+            part:SubstituteGeometry(model);
+            model:Destroy();
         end;
     end);
-    if (class_name=="NegateOperation") or (inst.tags and table_find(inst.tags,"rbxNegated")) then
+    if not suc then
+        warn("Error instantiating solid model: "..err);
+    end;
+    --end);
+    local tags=inst.tags;
+    if (class_name=="NegateOperation") or (tags and table_find(tags,"rbxNegated")) then
         part:SetAttribute("IsNegateOperation",true);
     end;
     return part;
@@ -369,9 +380,9 @@ local class_initializers={
             end;
             meshPart:SetAttribute("MeshId",meshId);
             meshPart:SetAttribute("TextureId",textureId);
-            local idVal=meshId:match("(%d+)$");
+            local idVal=string_match(meshId,"(%d+)$");
             local idNum=tonumber(idVal);
-            local isLocal=meshId:match("^rbxasset://");
+            local isLocal=string_match(meshId,"^rbxasset://");
             if not idNum and not isLocal then
                 warn("Failed to generate MeshPart with asset location \""..meshId.."\" due to error: ID is not a number or local asset.")
                 return meshPart;
@@ -503,18 +514,19 @@ local propExceptions={
 --[[ Build properties tree --]]
 local function initProp(obj,propName,prop,refs,loadSettings)
     propName=string_upper(string_sub(propName,1,1))..string_sub(propName,2); --case the property correctly
+    local propVal=prop.value;
     if (propName=="Color3uint8") then
         propName="Color"; -- fixes the format changes to RBXM
     elseif (propName=="Source") then
-        obj:SetAttribute("Source",prop.value);
-    elseif (propName=="Disabled" and prop.value==false) then
-        obj:SetAttribute("IC_Enabled",not prop.value);
+        obj:SetAttribute("Source",propVal);
+    elseif (propName=="Disabled" and propVal==false) then
+        obj:SetAttribute("IC_Enabled",not propVal);
         if not mod.Configuration.DisableScripts then
-            obj.Enabled=not prop.value;
+            obj.Enabled=not propVal;
         end;
-    elseif ((propName=="Playing" or propName=="IsPlaying") and prop.value==true) then
+    elseif ((propName=="Playing" or propName=="IsPlaying") and propVal==true) then
         obj.Playing=false;
-        obj:SetAttribute("IC_Playing",prop.value);
+        obj:SetAttribute("IC_Playing",propVal);
     elseif (propName=="Part1Internal") then
         obj.Part1=compile_prop("Part1",prop,refs,obj);
     elseif (propName=="Part0Internal") then
@@ -524,8 +536,8 @@ local function initProp(obj,propName,prop,refs,loadSettings)
     elseif (propName=="Locked" and mod.Configuration.UnlockParts) then
         obj.Locked=false;
         --some properties dont have the name they have ingame, we fix that here
-    elseif (propName:find("_xml")) then
-        propName=propName:match("(.*)_xml");
+    elseif (string_find(propName,"_")) then
+        propName=string_match(propName,"(.*)_");
     end;
     if (obj and (obj[propName]~=nil or propExceptions[propName]) and propName~="Disabled" and propName~="Locked" and propName~="PivotOffset" and propName~="Playing" and propName~="IsPlaying") then
         obj[propName]=compile_prop(propName,prop,refs,obj);
@@ -631,12 +643,13 @@ function mod:buildAsset(data,root_parent,loadSettings)
         return nil;
     end;
 end;
---[[ Creates a Script or LocalScript --]]
-function mod:NewScript(isLocal)
+--[[ Creates a Script or LocalScript `LoadCode` --]]
+function mod:NewScript(isLocal,sandboxType)
+    local currentType = sandboxType or (self.Configuration.Sandboxed and "Sandbox" or "Normal");
     if isLocal then
-        return templateCache[sandbox_type.."LocalScript"]:Clone();
+        return templateCache[currentType.."LocalScript"]:Clone();
     else
-        return templateCache[sandbox_type.."Script"]:Clone();
+        return templateCache[currentType.."Script"]:Clone();
     end;
 end;
 return mod;

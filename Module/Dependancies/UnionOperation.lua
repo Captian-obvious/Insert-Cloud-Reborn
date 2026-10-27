@@ -145,15 +145,21 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
         partToAttachTo=theparts[1];
         if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
             table_insert(negativeParts,partToAttachTo);
-            local old=partToAttachTo;
-            partToAttachTo=Instance.new("Part");
-            partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
-            partToAttachTo.Position=old.Position
-            partToAttachTo.Anchored=old.Anchored;
-            partToAttachTo.Transparency=1;
-            partToAttachTo.CanCollide=false;
-            partToAttachTo.Name="UnionBasePart";
-            partToAttachTo.Parent=model;
+            for i=2,partslen do
+                v=theparts[i];
+                if not v:GetAttribute("IsNegateOperation") then
+                    local old=v;
+                    partToAttachTo=Instance.new("Part");
+                    partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
+                    partToAttachTo.Position=old.Position
+                    partToAttachTo.Anchored=old.Anchored;
+                    partToAttachTo.Transparency=1;
+                    partToAttachTo.CanCollide=false;
+                    partToAttachTo.Name="UnionBasePart";
+                    partToAttachTo.Parent=model;
+                    break;
+                end;
+            end;
         end;
         for i=1,partslen do
             v=theparts[i];
@@ -238,15 +244,21 @@ function mod:applyChildDataNew(childData,options:UnionOptions,isIntersection:boo
         partToAttachTo=theparts[1];
         if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
             table_insert(negativeParts,partToAttachTo);
-            local old=partToAttachTo;
-            partToAttachTo=Instance.new("Part");
-            partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
-            partToAttachTo.Position=old.Position
-            partToAttachTo.Anchored=old.Anchored;
-            partToAttachTo.Transparency=1;
-            partToAttachTo.CanCollide=false;
-            partToAttachTo.Name="UnionBasePart";
-            partToAttachTo.Parent=model;
+            for i=2,partslen do
+                v=theparts[i];
+                if not v:GetAttribute("IsNegateOperation") then
+                    local old=v;
+                    partToAttachTo=Instance.new("Part");
+                    partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
+                    partToAttachTo.Position=old.Position
+                    partToAttachTo.Anchored=old.Anchored;
+                    partToAttachTo.Transparency=1;
+                    partToAttachTo.CanCollide=false;
+                    partToAttachTo.Name="UnionBasePart";
+                    partToAttachTo.Parent=model;
+                    break;
+                end;
+            end;
         end;
         for i=1,partslen do
             v=theparts[i];
