@@ -241,7 +241,6 @@ local propertyTypes={
         return Rect.new(value.pos1[1],value.pos1[2],value.pos2[1],value.pos2[2]);
     end,
     ["ref"]=function(typed,value,refs)
-        if value<0 then return nil end;
         return refs[value];
     end,
 };
@@ -267,18 +266,15 @@ local function compile_prop(prop,v,refs,class)
         end;
     end;
 end;
-local function InstantiateSolidModel(class_name,parent,inst,prop,refs,loadSettings,workers)
+local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,workers)
     if loadSettings.DisableSolidModeling then
         -- fallback to old behavior (js make the instance)
-        local h=Instance_new(class_name);
-        h.Parent=parent;
-        return h;
+        return Instance_new(class_name);
     end;
     local typeToInit=(class_name~="NegateOperation") and class_name or "UnionOperation";
     local isIntersection=(typeToInit=="IntersectOperation");
     local experimental=loadSettings.ExperimentalUnions;
     local part=Instance_new(typeToInit);
-    part.Parent=parent;
     --spawnWorker(workers,function()
     local suc,err=pcall(function()
         local model;
@@ -335,34 +331,25 @@ local blocked_classes={
     ["SkateboardPlatform"]=true,
 };
 local class_initializers={
-    ["Script"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=templateCache[sandbox_type..class_name]:Clone();
-        object.Parent=parent;
-        object.Enabled=false;
-        return object;
+    ["Script"]=function(class_name,inst,prop,refs,loadSettings)
+        return templateCache[sandbox_type..class_name]:Clone();
     end,
-    ["LocalScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
+    ["LocalScript"]=function(class_name,inst,prop,refs,loadSettings)
         local name=sandbox_type..class_name;
         if loadSettings.EnableLegacyClientScripts then
             name=name.."Legacy";
         end;
-        local object=templateCache[name]:Clone();
-        object.Parent=parent;
-        object.Enabled=false;
-        return object;
+        return templateCache[name]:Clone();
     end,
-    ["ModuleScript"]=function(class_name,parent,inst,prop,refs,loadSettings)
-        local object=templateCache[sandbox_type..class_name]:Clone();
-        object.Parent=parent;
-        return object;
+    ["ModuleScript"]=function(class_name,inst,prop,refs,loadSettings)
+        return templateCache[sandbox_type..class_name]:Clone();
     end,
-    ["MeshPart"]=function(class_name,parent,inst,prop,refs,loadSettings,workers)
+    ["MeshPart"]=function(class_name,inst,prop,refs,loadSettings,workers)
         local meshPart=Instance_new("MeshPart");
         local midprop=prop.MeshId or prop.MeshID or prop.MeshContent;
         local tidprop=prop.TextureID or prop.TextureId or prop.TextureContent;
         if not midprop then
             warn("Failed to generate MeshPart with asset location \""..tostring(midprop).."\" due to error: MeshId is missing.")
-            meshPart.Parent=parent;
             return meshPart;
         end;
         local meshId=midprop.value;
@@ -438,7 +425,6 @@ local class_initializers={
             mesh.Scale=OrigSize/InitialSize;
             mesh:SetAttribute("initialSize",InitialSize);
         end;
-        meshPart.Parent=parent;
         return meshPart;
     end,
     --['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
@@ -460,38 +446,39 @@ local class_initializers={
     ['NegateOperation']=InstantiateSolidModel,
     ["UnionOperation"]=InstantiateSolidModel,
     ["PartOperation"]=InstantiateSolidModel,
-    ["Humanoid"]=function(class_name,parent,inst,prop,refs,loadSettings)
+    ["Humanoid"]=function(class_name,inst,prop,refs,loadSettings)
         local humanoid=Instance_new("Humanoid");
         local healthprop=prop.Health or prop.Health_XML;
-        humanoid.Parent=parent;
         humanoid.MaxHealth=prop.MaxHealth.value or 100;
         humanoid.Health=(healthprop~=nil and healthprop.value~=nil) and compile_prop("Health",healthprop,refs,class_name) or humanoid.MaxHealth;
         return humanoid;
     end,
-    ["PackageLink"]=function(class_name,parent,inst,prop,refs,loadSettings)
+    ["PackageLink"]=function(class_name,inst,prop,refs,loadSettings)
         local obj=Instance_new("Folder");
-        obj.Parent=parent;
         obj.Name="PackageLink";
         --obj:SetAttribute("AssetId",prop.AssetId.value);
         return obj;
     end,
-    ["StockSound"]=function(class_name,parent,inst,prop,refs,loadSettings)
+    ["StockSound"]=function(class_name,inst,prop,refs,loadSettings)
         local obj=Instance_new("Folder");
-        obj.Parent=parent;
         obj.Name="StockSound";
         return obj;
     end,
-    ["Geometry"]=function(class_name,parent,inst,prop,refs,loadSettings)
+    ["Geometry"]=function(class_name,inst,prop,refs,loadSettings)
         local obj=Instance_new("Folder");
-        obj.Parent=parent;
         obj.Name="Geometry";
         return obj;
-    end
-};
-local InstancesCannotCreate={
-    "PackageLink",
-    "StockSound",
-    "Geometry"
+    end,
+    ["Timer"]=function(class_name,inst,prop,refs,loadSettings)
+        local obj=Instance_new("Folder");
+        obj.Name="Timer";
+        return obj;
+    end,
+    ["Workspace"]=function(class_name,inst,prop,refs,loadSettings)
+        local obj=Instance_new("Workspace");
+        obj.Name="Workspace";
+        return obj;
+    end,
 };
 local propExceptions={
     ["Attachment0"]=true,
@@ -581,22 +568,21 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
                 local children=inst.children;
                 local classInit=class_initializers[classname];
                 if classInit then
-                    --print_if_debug(loadSettings);
-                    instance=classInit(classname,parent,inst,props,refs,loadSettings,workers);
+                    instance=classInit(classname,inst,props,refs,loadSettings,workers);
                 else
                     instance=Instance_new(classname);
-                    instance.Parent=parent;
                 end;
                 if instance then
                     if instance:IsA("BasePart") then
                         instance.Anchored=true;
                         instance.CanCollide=false;
                     end;
-                    refs[inst.Ref]=instance; -- refs are base-0
+                    refs[inst.Ref]=instance;
                     instances[#instances+1]={instance,props,inst.attributes};
                     if #children>0 then
                         hierarcy[#hierarcy+1]={instance,children};
                     end;
+                    instance.Parent=parent;
                 end;
             end;
         end;
