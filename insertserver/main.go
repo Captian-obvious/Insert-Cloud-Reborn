@@ -503,8 +503,25 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic:", r)
+			err := fmt.Errorf("panic: %v", r)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ApiError{
+				Error:        "Failed to parse data",
+				ResponseCode: 500,
+				Details: []ApiErrorDetailsStruct{
+					{
+						Error: "An unhandled error occurred! " + err.Error(),
+						Code:  -1,
+					},
+				},
+			})
+			return
+		}
+	}()
 	rbxm, err := lib.Parse(string(assetDataRaw))
-	recover := recover()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ApiError{
@@ -513,20 +530,6 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 			Details: []ApiErrorDetailsStruct{
 				{
 					Error: string(err.Error()),
-					Code:  -1,
-				},
-			},
-		})
-		return
-	}
-	if recover != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Failed to parse data",
-			ResponseCode: 500,
-			Details: []ApiErrorDetailsStruct{
-				{
-					Error: recover.(error).Error(),
 					Code:  -1,
 				},
 			},
@@ -1037,6 +1040,21 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		})
 		return
 	}
+	jDatString := string(jDat)
+	if strings.Contains(jDatString, "Model Parse Error") { //honeypot, since no actual errors contain this
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ApiError{
+			Error:        "Model Parse Error",
+			ResponseCode: 500,
+			Details: []ApiErrorDetailsStruct{
+				{
+					Error: "An error occurred while parsing the model. (nice try exploiter)",
+					Code:  -1,
+				},
+			},
+		})
+		return
+	}
 	if conf.ServerConfig.JSONCachingEnabled {
 		file, err := os.Create(filepath.Join(jsonPath, versionedAssetId+".json"))
 		if err != nil {
@@ -1045,7 +1063,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 			file.Write(jDat)
 		}
 	}
-	fmt.Fprint(w, string(jDat))
+	fmt.Fprint(w, jDatString)
 }
 
 func ReloadConfig(path string) error {

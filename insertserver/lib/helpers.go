@@ -26,13 +26,6 @@ func matrixFromOrientId(i uint8) [9]float32 {
 	m[8] = m[0]*m[4] - m[1]*m[3]
 	return m
 }
-func fixBase64Padding(s string) string {
-	missing := len(s) % 4
-	if missing != 0 {
-		s += strings.Repeat("=", 4-missing)
-	}
-	return s
-}
 
 func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, error) {
 	properties := make([]Property, sizeof)
@@ -48,7 +41,8 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 				encoded = true
 				out = base64.StdEncoding.EncodeToString(raw)
 			} else {
-
+				encoded = false
+				//isFilteredString = true
 			}
 			properties[i] = Property{
 				Type:    "string",
@@ -241,7 +235,7 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 				var vals [3]float32
 				data.ReadNumber(binary.LittleEndian, &vals)
 				keypoints[k] = map[string]any{
-					"nskp": vals,
+					"nskp": []float32{PurifyFloat32Value(vals[0]), PurifyFloat32Value(vals[1]), PurifyFloat32Value(vals[2])},
 				}
 			}
 			properties[i] = Property{
@@ -397,17 +391,20 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 				}
 				propVal = Uris[uriIndex]
 				uriIndex += 1
+				properties[i] = Property{
+					Type:  "string",
+					Value: propVal,
+				}
 			case "obj":
 				if objIndex >= len(Objs) {
 					return nil, fmt.Errorf("object index out of range: %d >= %d", objIndex, len(Objs))
 				}
 				propVal = Objs[objIndex]
 				objIndex += 1
-			}
-			properties[i] = Property{
-				Type:  "content",
-				Value: propVal,
-				Ctype: t,
+				properties[i] = Property{
+					Type:  "ref",
+					Value: propVal,
+				}
 			}
 		}
 	}
@@ -618,7 +615,7 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 func PurifyFloat32Value(Val float32) float32 {
 	ReturnVal := Val
 	FloatVal := float64(Val)
-	if math.IsInf(FloatVal, 0) {
+	if math.IsInf(FloatVal, 1) {
 		ReturnVal = 1000000000000
 	} else if math.IsInf(FloatVal, -1) {
 		ReturnVal = -1000000000000
@@ -630,7 +627,7 @@ func PurifyFloat32Value(Val float32) float32 {
 func PurifyFloatValue(Val float64) float64 {
 	ReturnVal := Val
 	FloatVal := float64(Val)
-	if math.IsInf(FloatVal, 0) {
+	if math.IsInf(FloatVal, 1) {
 		ReturnVal = 1000000000000
 	} else if math.IsInf(FloatVal, -1) {
 		ReturnVal = -1000000000000
