@@ -359,51 +359,62 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 			case 0:
 				sourceTypes = append(sourceTypes, "nul")
 			case 1:
-				sourceTypes = append(sourceTypes, "uri")
-			case 2:
 				sourceTypes = append(sourceTypes, "obj")
+			case 2:
+				sourceTypes = append(sourceTypes, "uri")
 			}
 		}
 		var UriCount uint32
+		var ObjCount uint32
+		var ExtObjCount uint32
 		var Uris []string
 		data.ReadNumber(binary.LittleEndian, &UriCount)
 		for i := 0; i < int(UriCount); i++ {
 			Uris = append(Uris, RbxString(data))
 		}
-		var ObjCount uint32
 		data.ReadNumber(binary.LittleEndian, &ObjCount)
 		Objs := RefArray(data, int(ObjCount))
-		var ExtObjCount uint32
 		data.ReadNumber(binary.LittleEndian, &ExtObjCount)
 		RefArray(data, int(ExtObjCount)) //external refs, not applicable
 		uriIndex := 0
 		objIndex := 0
-		if len(sourceTypes) != sizeof {
-			return nil, fmt.Errorf("source types length mismatch: %d != %d", len(sourceTypes), sizeof)
+		actualSize := len(sourceTypes)
+		actualUriCount := len(Uris)
+		actualObjCount := len(Objs)
+		if actualSize != sizeof {
+			return nil, fmt.Errorf("source types length mismatch: %d != %d", actualSize, sizeof)
+		}
+		if actualUriCount != int(UriCount) {
+			return nil, fmt.Errorf("uri count mismatch: %d != %d", actualUriCount, UriCount)
+		}
+		if actualObjCount != int(ObjCount) {
+			return nil, fmt.Errorf("object count mismatch: %d != %d", actualObjCount, ObjCount)
 		}
 		for i := 0; i < sizeof; i++ {
 			t := sourceTypes[i]
 			var propVal any
 			switch t {
 			case "uri":
-				if uriIndex >= len(Uris) {
-					return nil, fmt.Errorf("uri index out of range: %d >= %d", uriIndex, len(Uris))
+				if uriIndex >= actualUriCount {
+					return nil, fmt.Errorf("uri index out of range: %d >= %d", uriIndex, actualUriCount)
 				}
 				propVal = Uris[uriIndex]
 				uriIndex += 1
 				properties[i] = Property{
-					Type:  "string",
+					Type:  "content",
 					Value: propVal,
+					Ctype: "uri",
 				}
 			case "obj":
-				if objIndex >= len(Objs) {
-					return nil, fmt.Errorf("object index out of range: %d >= %d", objIndex, len(Objs))
+				if objIndex >= actualObjCount {
+					return nil, fmt.Errorf("object index out of range: %d >= %d", objIndex, actualObjCount)
 				}
 				propVal = Objs[objIndex]
 				objIndex += 1
 				properties[i] = Property{
-					Type:  "ref",
+					Type:  "content",
 					Value: propVal,
+					Ctype: "obj",
 				}
 			}
 		}

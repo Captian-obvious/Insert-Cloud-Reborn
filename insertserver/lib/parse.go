@@ -164,7 +164,7 @@ func Parse(data string) (*RBXM, error) {
 		chunkStore[validChunkIdents[i]] = []Chunk{}
 	}
 	if rawData.ReadAsString(8, true) != "\x00\x00\x00\x00\x00\x00\x00\x00" {
-		return &rbxm, errors.New("Failed to parse file, it is not a valid RBXM file.")
+		return nil, errors.New("Failed to parse file, it is not a valid RBXM file.")
 	}
 	// its chunk time
 	chunkIndex := 0
@@ -172,7 +172,7 @@ func Parse(data string) (*RBXM, error) {
 	for !hasReachedEndChunk {
 		chunk, err := InitChunk(rawData, chunkIndex)
 		if err != nil {
-			return &rbxm, err
+			return nil, err
 		}
 		ident := chunk.Header
 		if ident == "END\x00" {
@@ -182,16 +182,31 @@ func Parse(data string) (*RBXM, error) {
 		if _, ok := chunkStore[ident]; ok {
 			chunkStore[ident] = append(chunkStore[ident], chunk)
 		} else {
-			return &rbxm, errors.New("Unknown Chunk Identifier on chunk index: " + strconv.FormatInt(int64(chunkIndex), 10))
+			return nil, errors.New("Unknown Chunk Identifier on chunk index: " + strconv.FormatInt(int64(chunkIndex), 10))
 		}
 		chunkIndex++
 	}
-	ProcessChunk(chunkStore, "META", &rbxm)
-	ProcessChunk(chunkStore, "SSTR", &rbxm)
-	ProcessChunk(chunkStore, "INST", &rbxm)
-	ProcessChunk(chunkStore, "PROP", &rbxm)
-	ProcessChunk(chunkStore, "PRNT", &rbxm)
-	return &rbxm, nil
+	err := ProcessChunk(chunkStore, "META", &rbxm)
+	if err != nil {
+		return nil, err
+	}
+	err = ProcessChunk(chunkStore, "SSTR", &rbxm)
+	if err != nil {
+		return nil, err
+	}
+	err = ProcessChunk(chunkStore, "INST", &rbxm)
+	if err != nil {
+		return nil, err
+	}
+	err = ProcessChunk(chunkStore, "PROP", &rbxm)
+	if err != nil {
+		return nil, err
+	}
+	err = ProcessChunk(chunkStore, "PRNT", &rbxm)
+	if err != nil {
+		return nil, err
+	}
+	return &rbxm, err
 }
 
 /*
