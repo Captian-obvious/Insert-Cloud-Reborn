@@ -21,6 +21,7 @@ const ZLIB_HEADER string = "\x28\xb5\x2f\xfd"
 const xmlprefixthing string = "<?xml version='1.0' encoding='utf-8'?>"
 const xmlprefixthing2 string = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
 const maxFileSizeMiB int = 20 //max file size (avoids memory overflow)
+var zdec *zstd.Decoder
 
 var validChunkIdents []string = []string{
 	"END\x00",
@@ -93,8 +94,10 @@ func InitChunk(content *Stream, index int) (Chunk, error) {
 			chunkData[0] == 0x28 && chunkData[1] == 0xB5 &&
 			chunkData[2] == 0x2F && chunkData[3] == 0xFD {
 			//zstd
-			dec, _ := zstd.NewReader(nil)
-			data, err := dec.DecodeAll(chunkData, nil)
+			if zdec == nil {
+				zdec, _ = zstd.NewReader(nil)
+			}
+			data, err := zdec.DecodeAll(chunkData, nil)
 			if err != nil {
 				return chunk, errors.New("Decompression failed on chunk index " + strconv.FormatInt(int64(index), 10))
 			}

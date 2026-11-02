@@ -19,11 +19,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 )
 
@@ -84,7 +82,6 @@ var lastBatchLog int64
 var CONFIG_FILE_PATH string = os.Getenv("CONFIG_FILE_PATH")
 var STARTED_AT time.Time
 var BLOCKED_ASSET_IDS map[float64]struct{}
-var cdnCache sync.Map // map[assetId]cdnCacheEntry
 var tr *http.Transport = &http.Transport{
 	MaxIdleConns:          200,
 	MaxIdleConnsPerHost:   200,
@@ -104,11 +101,6 @@ type LogJson struct {
 	Timestamp string `json:"Timestamp"`
 	Type      string `json:"Type"`
 	JobId     string `json:"JobId"`
-}
-
-type cdnCacheEntry struct {
-	Location  string
-	ExpiresAt time.Time
 }
 
 type ApiErrorDetailsStruct struct {
@@ -284,7 +276,7 @@ func main() {
 	r.HandleFunc("/logger", LoggerHandler).Methods("POST")
 	r.HandleFunc("/request_error", lib.ErrorPageHandler).Methods("GET")
 	fmt.Println("Listening on port :" + ansi.Green + port + ansi.Reset)
-	log.Fatal(http.ListenAndServe(":"+port, context.ClearHandler(r)))
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
 func get_asset(w http.ResponseWriter, r *http.Request) {
@@ -406,6 +398,7 @@ func AudioViewerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("Failed to fetch asset info.")
 	} else {
+		defer res.Body.Close()
 		switch res.StatusCode {
 		case 200:
 			var data AssetThumbnailList
@@ -429,6 +422,7 @@ func AudioViewerHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Println("Failed to fetch asset info. (request failed)")
 		} else {
+			defer res2.Body.Close()
 			switch res2.StatusCode {
 			case 200:
 				var assetData AssetMetadata
@@ -801,12 +795,6 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 		verStr = ""
 	}
 	versionedAssetId := assetId + verStr
-	if entry, ok := cdnCache.Load(versionedAssetId); ok {
-		cdnEntry := entry.(cdnCacheEntry)
-		if time.Now().After(cdnEntry.ExpiresAt) {
-			cdnCache.CompareAndDelete(versionedAssetId, entry)
-		}
-	}
 	switch res.StatusCode {
 	case 200:
 		var data AssetLocationData
@@ -843,10 +831,6 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			})
 			break
 		}
-		cdnCache.Store(versionedAssetId, cdnCacheEntry{
-			Location:  data.Location,
-			ExpiresAt: time.Now().Add(time.Minute * 6), // cache for 6 minutes
-		})
 	case 401:
 		if aMode == "legacy" && *conf.ServerConfig.OpenCloudFallbackEnabled {
 			return fetchAssetData(assetId, version, placeId, assetType, w, r, "apikey")
@@ -886,25 +870,6 @@ func fetchAssetData(assetId string, version string, placeId string, assetType st
 			} else {
 				rets = string(thedata)
 			}
-		} else if cdnEntry, ok := cdnCache.Load(versionedAssetId); ok {
-			cdnEntryData := cdnEntry.(cdnCacheEntry)
-			if time.Now().Before(cdnEntryData.ExpiresAt) {
-				rets, err = fetchAssetFromLocation(cdnEntryData.Location)
-				if err != nil {
-					w.WriteHeader(http.StatusTooManyRequests)
-					json.NewEncoder(w).Encode(ApiError{
-						Error:        "Upstream server is rate limiting requests, and cached CDN location failed to fetch.",
-						ResponseCode: 429,
-					})
-				}
-			} else {
-				w.WriteHeader(http.StatusTooManyRequests)
-				json.NewEncoder(w).Encode(ApiError{
-					Error:        "Upstream server is rate limiting requests, and cached CDN location expired.",
-					ResponseCode: 429,
-				})
-			}
-
 		} else {
 			w.WriteHeader(http.StatusTooManyRequests)
 			json.NewEncoder(w).Encode(ApiError{
@@ -960,6 +925,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		if err != nil {
 			log.Println("failed to create cache file! " + err.Error())
 		} else {
+			defer file.Close()
 			file.WriteString(data)
 		}
 	}
@@ -975,6 +941,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 				if err != nil {
 					log.Println("failed to create cache file! " + err.Error())
 				} else {
+					defer file.Close()
 					file.WriteString(data)
 				}
 			} else {
@@ -1060,6 +1027,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		if err != nil {
 			log.Println("failed to create cache file! " + err.Error())
 		} else {
+			defer file.Close()
 			file.Write(jDat)
 		}
 	}
