@@ -30,6 +30,8 @@ local string_match=string.match;
 local table_clone=table.clone;
 local Instance_new=Instance.new;
 local CFrame_new=CFrame.new;
+local Vector3_new=Vector3.new;
+local math_max=math.max;
 local b64=require(script.Parent.Base64); -- base64 encoding/decoding
 local union=require(script.Parent.UnionOperation); -- Creates UnionOperations from their data
 local promise=require(script.Parent.Worker); -- Parallelization
@@ -37,6 +39,7 @@ local b64_decode=b64.decode;
 local b64_encode=b64.encode;
 local spawnWorker=promise.spawnWorker;
 local spawnWorkerDeferred=promise.spawnWorkerDeferred;
+local InstanceNewMeshPartRef=Instance_new("MeshPart");
 
 local mod={
     isInitialized=false,
@@ -85,6 +88,18 @@ local function colorFunc(propType,value)
         return BrickColor.new("Medium stone grey");
     end;
     return Color3.new();
+end;
+local function vector3Func(propType,value)
+    if value and #value==3 then
+        if propType=="vector3int16" then
+            return Vector3int16.new(unpack(value));
+        elseif propType=="vector3" then
+            return Vector3_new(unpack(value));
+        end
+    elseif propType=="vector3int16" then
+        return Vector3int16.new();
+    end;
+    return Vector3_new(); 
 end;
 local propertyTypes={
     -- things that need additonal parsing go here
@@ -136,16 +151,10 @@ local propertyTypes={
         return CFrame_new(unpack(value));
     end,
     ["vector3int16"]=function(typed,value,refs)
-        if value and #value==3 then
-            return Vector3.new(unpack(value));
-        end;
-        return Vector3.new(); 
+        return vector3Func(typed,value)
     end,
     ["vector3"]=function(typed,value,refs)
-        if value and #value==3 then
-            return Vector3.new(unpack(value));
-        end;
-        return Vector3.new(); 
+        return vector3Func(typed,value) 
     end,
     ["vector2"]=function(typed,value,refs)
         if value and #value==2 then
@@ -275,8 +284,7 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
     local isIntersection=(typeToInit=="IntersectOperation");
     local experimental=loadSettings.ExperimentalUnions;
     local part=Instance_new(typeToInit);
-    --spawnWorker(workers,function()
-    local suc,err=pcall(function()
+    local suc,err=pcall(spawnWorker,workers,function()
         local model;
         local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string_len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
         local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string_len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
@@ -315,8 +323,8 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
     end);
     if not suc then
         warn("Error instantiating solid model: "..err);
+        worker.ActiveWorkers=math_max(workers.ActiveWorkers-1,0);
     end;
-    --end);
     local tags=inst.tags;
     if (class_name=="NegateOperation") or (tags and table_find(tags,"rbxNegated")) then
         part:SetAttribute("IsNegateOperation",true);
@@ -345,7 +353,7 @@ local class_initializers={
         return templateCache[sandbox_type..class_name]:Clone();
     end,
     ["MeshPart"]=function(class_name,inst,prop,refs,loadSettings,workers)
-        local meshPart=Instance_new("MeshPart");
+        local meshPart=InstanceNewMeshPartRef:Clone();
         local midprop=prop.MeshId or prop.MeshID or prop.MeshContent;
         local tidprop=prop.TextureID or prop.TextureId or prop.TextureContent;
         if not midprop then
@@ -427,21 +435,28 @@ local class_initializers={
         end;
         return meshPart;
     end,
-    --['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
-    --    local propmaps={
-    --        ColorMap=contentUri(prop.ColorMap.value),
-    --        MetalnessMap=contentUri(prop.MetalnessMap.value),
-    --        NormalMap=contentUri(prop.NormalMap.value),
-    --        RoughnessMap=contentUri(prop.RoughnessMap.value),
-    --    };
-    --    local suc,surf=pcall(assetService.CreateSurfaceAppearanceAsync,assetService,propmaps);
-    --    if not suc then
-    --        warn("Failed to create SurfaceAppearance on MeshPart due to an error: "..tostring(surf));
-    --        return Instance_new("SurfaceAppearance");
-    --    end;
-    --    surf.Parent=parent;
-    --    return surf;
-    --end,
+    ['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
+        local propmaps={};
+        if prop.ColorMap then
+            propmaps.ColorMap=contentUri(prop.ColorMap.value);
+        end;
+        if prop.MetalnessMap then
+            propmaps.MetalnessMap=contentUri(prop.MetalnessMap.value);
+        end;
+        if prop.NormalMap then
+            propmaps.NormalMap=contentUri(prop.NormalMap.value);
+        end;
+        if prop.RoughnessMap then
+            propmaps.RoughnessMap=contentUri(prop.RoughnessMap.value);
+        end;
+        local suc,surf=pcall(assetService.CreateSurfaceAppearanceAsync,assetService,propmaps);
+        if not suc then
+            warn("Failed to create SurfaceAppearance on MeshPart due to an error: "..tostring(surf));
+            return Instance_new("SurfaceAppearance");
+        end;
+        surf.Parent=parent;
+        return surf;
+    end,
     ["IntersectOperation"]=InstantiateSolidModel,
     ['NegateOperation']=InstantiateSolidModel,
     ["UnionOperation"]=InstantiateSolidModel,
@@ -505,7 +520,7 @@ local function initProp(obj,propName,prop,refs,loadSettings)
     if (propName=="Color3uint8") then
         propName="Color"; -- fixes the format changes to RBXM
     elseif (propName=="Source") then
-        obj:SetAttribute("Source",propVal);
+        obj:SetAttribute("Source",compile_prop(propName,prop,refs,obj));
     elseif (propName=="Disabled" and propVal==false) then
         obj:SetAttribute("IC_Enabled",not propVal);
         if not mod.Configuration.DisableScripts then

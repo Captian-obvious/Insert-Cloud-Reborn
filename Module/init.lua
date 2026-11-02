@@ -232,7 +232,6 @@ local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadS
         });
         return nil;
     end;
-    model:MakeJoints();
     if position then
         model:MoveTo(position);
     end;
@@ -424,6 +423,8 @@ function mod:CompileAsset(model:Model,parent:Instance?)
         end;
     end;
     local root_instances=model:GetChildren();
+    model.Parent=parent or Configuration.DefaultParent or workspace;
+    model:MakeJoints();
     for i,v in pairs(root_instances) do
         v.Parent=parent or Configuration.DefaultParent or workspace;
     end;
@@ -434,7 +435,6 @@ end;
 Loads code based on a type, code, and the player
 ]]
 function mod:LoadCode(code:string,typ:string,plr:Player,parent:Instance,enabled:boolean)
-    local sandboxType=(Configuration.Sandboxed) and "Sandbox" or "Normal";
     local s = modelAssembler:NewScript((typ~="server") and true or false)
     s:SetAttribute("Source",tostring(code))
     if s:FindFirstChild("Player") then
