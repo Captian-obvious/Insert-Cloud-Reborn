@@ -29,9 +29,13 @@ local string_find=string.find;
 local string_match=string.match;
 local table_clone=table.clone;
 local Instance_new=Instance.new;
+local PhysicalProperties_new=PhysicalProperties.new;
 local CFrame_new=CFrame.new;
 local Vector3_new=Vector3.new;
 local math_max=math.max;
+local BrickColor_new=BrickColor.new;
+local Color3_new=Color3.new;
+local Color3_fromRGB=Color3.fromRGB;
 local b64=require(script.Parent.Base64); -- base64 encoding/decoding
 local union=require(script.Parent.UnionOperation); -- Creates UnionOperations from their data
 local promise=require(script.Parent.Worker); -- Parallelization
@@ -77,17 +81,17 @@ local function colorFunc(propType,value)
     if value then
         if propType=="brickcolor" then
             if type(value)=="number" then -- why is the internal id of brickcolor "Float"? (roblox, your wierd)
-                return BrickColor.new(value);
+                return BrickColor_new(value);
             end;
         elseif propType=="color3" then
-            return Color3.new(unpack(value));
+            return Color3_new(unpack(value));
         elseif propType=="rgbc3" then
-            return Color3.fromRGB(unpack(value));
+            return Color3_fromRGB(unpack(value));
         end;
     elseif propType=="brickcolor" then
-        return BrickColor.new("Medium stone grey");
+        return BrickColor_new("Medium stone grey");
     end;
-    return Color3.new();
+    return Color3_new();
 end;
 local function vector3Func(propType,value)
     if value and #value==3 then
@@ -229,7 +233,7 @@ local propertyTypes={
     end,
     ["physprops"]=function(typed,value,refs)
         if value and #value==6 then
-            return PhysicalProperties.new(unpack(value)); --no breakage from format changes GRRRR
+            return PhysicalProperties_new(unpack(value)); --no breakage from format changes GRRRR
         end;
         return nil;
     end,
@@ -302,7 +306,9 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
             RenderFidelity=rendfidelity,
             SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
         };
-        if childData~=nil or childData2~=nil then
+        if assetId~=nil then
+            model=union:applyAssetId(assetId,options,isIntersection,experimental);
+        elseif childData~=nil or childData2~=nil then
             local data=(childData2~=nil) and childData2 or childData;
             local thefunc;
             if experimental then
@@ -313,8 +319,6 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
             model=thefunc(union,data,options,isIntersection);
         elseif assetData~=nil then
             model=union:applyAssetData(assetData,options,isIntersection,experimental);
-        elseif assetId~=nil then
-            model=union:applyAssetId(assetId,options,isIntersection,experimental);
         end;
         if model~=nil then
             part:SubstituteGeometry(model);
@@ -435,26 +439,34 @@ local class_initializers={
         end;
         return meshPart;
     end,
-    ['SurfaceAppearance']=function(class_name,parent,inst,prop,refs,loadSettings)
-        local propmaps={};
-        if prop.ColorMap then
-            propmaps.ColorMap=contentUri(prop.ColorMap.value);
+    ['SurfaceAppearance']=function(class_name,inst,prop,refs,loadSettings)
+        local ColorMap,MetalnessMap,RoughnessMap,NormalMap,EmissiveMask;
+        if prop.ColorMap~=nil then
+            ColorMap=contentUri(prop.ColorMap.value);
         end;
-        if prop.MetalnessMap then
-            propmaps.MetalnessMap=contentUri(prop.MetalnessMap.value);
+        if prop.MetalnessMap~=nil then
+            MetalnessMap=contentUri(prop.MetalnessMap.value);
         end;
-        if prop.NormalMap then
-            propmaps.NormalMap=contentUri(prop.NormalMap.value);
+        if prop.NormalMap~=nil then
+            NormalMap=contentUri(prop.NormalMap.value);
         end;
-        if prop.RoughnessMap then
-            propmaps.RoughnessMap=contentUri(prop.RoughnessMap.value);
+        if prop.RoughnessMap~=nil then
+            RoughnessMap=contentUri(prop.RoughnessMap.value);
         end;
-        local suc,surf=pcall(assetService.CreateSurfaceAppearanceAsync,assetService,propmaps);
+        if prop.EmissiveMask~=nil then
+            EmissiveMask=contentUri(prop.EmissiveMask.value);
+        end;
+        local suc,surf=pcall(assetService.CreateSurfaceAppearanceAsync,assetService,{
+            ColorMap=ColorMap,
+            MetalnessMap=MetalnessMap,
+            NormalMap=NormalMap,
+            RoughnessMap=RoughnessMap,
+            EmissiveMask=EmissiveMask,
+        });
         if not suc then
             warn("Failed to create SurfaceAppearance on MeshPart due to an error: "..tostring(surf));
             return Instance_new("SurfaceAppearance");
         end;
-        surf.Parent=parent;
         return surf;
     end,
     ["IntersectOperation"]=InstantiateSolidModel,
