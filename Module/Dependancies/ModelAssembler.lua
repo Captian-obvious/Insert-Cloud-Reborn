@@ -9,25 +9,17 @@ local table_insert=table.insert;
 local table_clone=table.clone;
 local table_remove=table.remove;
 local table_pack=table.pack;
-local table_move=table.move;
-local table_sort=table.sort;
-local table_concat=table.concat;
 local table_unpack=table.unpack;
-local table_pack=table.pack;
 local task_spawn=task.spawn;
 local task_wait=task.wait;
-local task_delay=task.delay;
 local string_upper=string.upper;
 local string_sub=string.sub;
 local string_gsub=string.gsub;
 local string_split=string.split;
 local string_format=string.format;
-local string_gmatch=string.gmatch;
-local string_char=string.char;
 local string_len=string.len;
 local string_find=string.find;
 local string_match=string.match;
-local table_clone=table.clone;
 local Instance_new=Instance.new;
 local PhysicalProperties_new=PhysicalProperties.new;
 local CFrame_new=CFrame.new;
@@ -50,20 +42,6 @@ local mod={
     Configuration={},
     debug_mode=false, --prints additional stuff to console
 };
-
-function resolveEnumInteger(enum:Enum, int:number)
-    local vals=enum:GetEnumItems();
-    for i=1,#vals do
-        local e=vals[i];
-        if e.Value==int then
-            return e;
-        end;
-    end;
-    if int >= 0 and int < #vals then
-        return vals[int + 1];-- Lua is 1-based
-    end;
-    return vals[1];
-end;
 
 --[[ PrintDebug --]]
 function print_if_debug(...)
@@ -134,7 +112,7 @@ local propertyTypes={
         if not classInstance then return nil; end;
         local success, defaultVal = pcall(function() return classInstance[propName]; end);
         if success then
-            return resolveEnumInteger(defaultVal.EnumType,value);
+            return defaultVal.EnumType:FromValue(value);
         end;
         warn("Enum inference failed for property:", propName, "on", tostring(classInstance));
         return nil;
@@ -242,7 +220,7 @@ local propertyTypes={
             local family = value.fontFamily or "rbxasset://fonts/families/LegacySerif.json";
             local weight = value.fontWeight or 400;
             local style = value.fontStyle or 0;
-            return Font.new(family,resolveEnumInteger(Enum.FontWeight,weight),resolveEnumInteger(Enum.FontStyle,style));
+            return Font.new(family,Enum.FontWeight:FromValue(weight),Enum.FontStyle:FromValue(style));
         end;
         return Font.new("rbxasset://fonts/families/LegacySerif.json");
     end,
@@ -296,19 +274,19 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
         local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string_len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
         local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
         if prop.CollisionFidelity and prop.CollisionFidelity.value then
-            colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+            colfidelity=Enum.CollisionFidelity:FromValue(prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
         end;
         if prop.RenderFidelity and prop.RenderFidelity.value then
-            rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+            rendfidelity=Enum.RenderFidelity:FromValue(prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
         end;
         local options={
             CollisionFidelity=colfidelity,
             RenderFidelity=rendfidelity,
             SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
         };
-        if assetId~=nil then
+        if assetId~=nil then --priority 1
             model=union:applyAssetId(assetId,options,isIntersection,experimental);
-        elseif childData~=nil or childData2~=nil then
+        elseif childData~=nil or childData2~=nil then --priority 2
             local data=(childData2~=nil) and childData2 or childData;
             local thefunc;
             if experimental then
@@ -317,7 +295,7 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
                 thefunc=union.applyChildData;
             end;
             model=thefunc(union,data,options,isIntersection);
-        elseif assetData~=nil then
+        elseif assetData~=nil then -- I rarely see this ever fire so..... priority 3
             model=union:applyAssetData(assetData,options,isIntersection,experimental);
         end;
         if model~=nil then
@@ -372,10 +350,10 @@ local class_initializers={
         if loadSettings.EnablePreciseMeshParts then
             local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
             if prop.CollisionFidelity and prop.CollisionFidelity.value then
-                colfidelity=resolveEnumInteger(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+                colfidelity=Enum.CollisionFidelity:FromValue(prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
             end;
             if prop.RenderFidelity and prop.RenderFidelity.value then
-                rendfidelity=resolveEnumInteger(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+                rendfidelity=Enum.RenderFidelity:FromValue(prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
             end;
             meshPart:SetAttribute("MeshId",meshId);
             meshPart:SetAttribute("TextureId",textureId);
@@ -426,7 +404,7 @@ local class_initializers={
             meshPart.TextureID=textureId;
         else
             meshPart:Destroy();
-            meshPart=Instance.new("Part");
+            meshPart=Instance_new("Part");
             local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
             local OrigSize=compile_prop("Size",prop.size,refs,class_name);
             -- everything else is applied during the properties step so we just need to set up the mesh
