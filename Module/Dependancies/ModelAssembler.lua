@@ -36,6 +36,10 @@ local b64_encode=b64.encode;
 local spawnWorker=promise.spawnWorker;
 local spawnWorkerDeferred=promise.spawnWorkerDeferred;
 local InstanceNewMeshPartRef=Instance_new("MeshPart");
+local meshCache={};
+local loadingMeshes={};
+local templateCache = {};
+local resolvedEnums = {};
 
 local mod={
     isInitialized=false,
@@ -43,18 +47,11 @@ local mod={
     debug_mode=false, --prints additional stuff to console
 };
 
---[[ PrintDebug --]]
-function print_if_debug(...)
+local function print_if_debug(...)
     if mod.debug_mode then
         print(...);
     end;
 end;
-local templateCache = {};
-for _, child in ipairs(Templates:GetChildren()) do
-    templateCache[child.Name] = child;
-end;
-local meshCache={};
-local loadingMeshes={};
 local function colorFunc(propType,value)
     if value then
         if propType=="brickcolor" then
@@ -82,6 +79,14 @@ local function vector3Func(propType,value)
         return Vector3int16.new();
     end;
     return Vector3_new(); 
+end;
+local function resolveEnum(enum:Enum,int:number)
+    local cache=resolvedEnums[enum];
+    if not cache then
+        cache={};
+        resolvedEnums[enum]=cache;
+    end;
+    return cache[int] or enum:FromValue(int);
 end;
 local propertyTypes={
     -- things that need additonal parsing go here
@@ -112,7 +117,7 @@ local propertyTypes={
         if not classInstance then return nil; end;
         local success, defaultVal = pcall(function() return classInstance[propName]; end);
         if success then
-            return defaultVal.EnumType:FromValue(value);
+            return resolveEnum(defaultVal.EnumType,value);
         end;
         warn("Enum inference failed for property:", propName, "on", tostring(classInstance));
         return nil;
@@ -124,7 +129,7 @@ local propertyTypes={
             local x,y,z=unpack(pos);
             return CFrame_new(x,y,z,unpack(rot));
         elseif pos then
-            return CFrame_new(Vector3.new(unpack(pos)));
+            return CFrame_new(Vector3_new(unpack(pos)));
         end;
         return CFrame_new();
     end,
@@ -220,7 +225,7 @@ local propertyTypes={
             local family = value.fontFamily or "rbxasset://fonts/families/LegacySerif.json";
             local weight = value.fontWeight or 400;
             local style = value.fontStyle or 0;
-            return Font.new(family,Enum.FontWeight:FromValue(weight),Enum.FontStyle:FromValue(style));
+            return Font.new(family,resolveEnum(Enum.FontWeight,weight),resolveEnum(Enum.FontStyle,style));
         end;
         return Font.new("rbxasset://fonts/families/LegacySerif.json");
     end,
@@ -268,16 +273,16 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
     local part=Instance_new(typeToInit);
     local suc,err=pcall(spawnWorker,workers,function()
         local model;
-        local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string_len(prop.ChildData.value)>0) and prop.ChildData.value or nil;
-        local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string_len(prop.ChildData2.value)>0) and prop.ChildData2.value or nil;
-        local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string_len(prop.AssetData.value)>0) and prop.AssetData.value or nil;
-        local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string_len(prop.AssetId.value)>0) and prop.AssetId.value or nil;
+        local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string_len(prop.ChildData.value)>0) and compile_prop("ChildData",prop.ChildData,refs,part) or nil;
+        local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string_len(prop.ChildData2.value)>0) and compile_prop("ChildData2",prop.ChildData2,refs,part) or nil;
+        local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string_len(prop.AssetData.value)>0) and compile_prop("AssetData",prop.AssetData,refs,part) or nil;
+        local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string_len(prop.AssetId.value)>0) and compile_prop("AssetId",prop.AssetId,refs,part) or nil;
         local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
         if prop.CollisionFidelity and prop.CollisionFidelity.value then
-            colfidelity=Enum.CollisionFidelity:FromValue(prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+            colfidelity=resolveEnum(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
         end;
         if prop.RenderFidelity and prop.RenderFidelity.value then
-            rendfidelity=Enum.RenderFidelity:FromValue(prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+            rendfidelity=resolveEnum(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
         end;
         local options={
             CollisionFidelity=colfidelity,
@@ -285,18 +290,11 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
             SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
         };
         if assetId~=nil then --priority 1
-            model=union:applyAssetId(assetId,options,isIntersection,experimental);
+            model=union:applyAssetId(assetId,options,isIntersection);
         elseif childData~=nil or childData2~=nil then --priority 2
-            local data=(childData2~=nil) and childData2 or childData;
-            local thefunc;
-            if experimental then
-                thefunc=union.applyChildDataNew;
-            else
-                thefunc=union.applyChildData;
-            end;
-            model=thefunc(union,data,options,isIntersection);
+            model=union:applyChildData((childData2~=nil) and childData2 or childData,options,isIntersection);
         elseif assetData~=nil then -- I rarely see this ever fire so..... priority 3
-            model=union:applyAssetData(assetData,options,isIntersection,experimental);
+            model=union:applyAssetData(assetData,options,isIntersection);
         end;
         if model~=nil then
             part:SubstituteGeometry(model);
@@ -350,10 +348,10 @@ local class_initializers={
         if loadSettings.EnablePreciseMeshParts then
             local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
             if prop.CollisionFidelity and prop.CollisionFidelity.value then
-                colfidelity=Enum.CollisionFidelity:FromValue(prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
+                colfidelity=resolveEnum(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
             end;
             if prop.RenderFidelity and prop.RenderFidelity.value then
-                rendfidelity=Enum.RenderFidelity:FromValue(prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+                rendfidelity=resolveEnum(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
             end;
             meshPart:SetAttribute("MeshId",meshId);
             meshPart:SetAttribute("TextureId",textureId);
@@ -642,5 +640,8 @@ function mod:NewScript(isLocal,sandboxType)
     else
         return templateCache[currentType.."Script"]:Clone();
     end;
+end;
+for _, child in ipairs(Templates:GetChildren()) do
+    templateCache[child.Name] = child;
 end;
 return mod;

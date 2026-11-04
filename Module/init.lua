@@ -11,7 +11,6 @@ local Configuration={
         DisableSolidModeling=false,
         EnableLegacyClientScripts=false,
         EnablePreciseMeshParts=true,
-        ExperimentalUnions=false,
         FECompatible=false,
         RemoveDecals=false,
         RemoveScripts=false,
@@ -30,10 +29,9 @@ local modelAssembler=require(script.Dependancies.ModelAssembler);
 local modelDefuser=require(script.Dependancies.ModelDefuser);
 local serverplaceid=game.PlaceId; --server place id
 local insertCloudCache={};
-local SolidModeling={
-    isInitialized=false,
-    urlToFetch=nil,
-};
+local SolidModelingInitialized=false;
+local SolidModelingUrl=nil;
+
 export type QueueEntry={
     Sending:boolean,
     Send:()->(),
@@ -179,8 +177,8 @@ function requestORQueue(url:string,assetId:number,ver:number,api_key:Secret,asse
         end;
     end);
     --if (not suc and tostring(res)=="Number of requests exceeded limit") and Configuration.RetryOnRateLimit then
-    --    return handleQueue(url,assetId,placeId,ver,api_key,assetType);
-    --end
+    --    return handleQueue(url,assetId,serverplaceid,ver,api_key,assetType);
+    --end;
     return suc,res,errInf;
 end;
 local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
@@ -288,18 +286,18 @@ end;
 Initializes the SolidModeling part of the module
 ]]
 function initializeSolidModeling(fetchUrl:string|Secret)
-    if SolidModeling.isInitialized then return end;
+    if SolidModelingInitialized then return end;
     if fetchUrl and typeof(fetchUrl)~="string" then return end;
     --if parseUrl and typeof(parseUrl)~="string" then return end;
-    SolidModeling.isInitialized=true;
-    SolidModeling.urlToFetch=fetchUrl;
+    SolidModelingInitialized=true;
+    SolidModelingUrl=fetchUrl;
     --modules.unionBuilder:initialize(parseUrl)
 end;
 
 initialize();
 function mod:SetSolidModelingFetchUrl(url:string|Secret)
-    SolidModeling.urlToFetch=url;
-    if not SolidModeling.isInitialized then
+    SolidModelingUrl=url;
+    if not SolidModelingInitialized then
         initializeSolidModeling(url);
     end;
 end;
@@ -312,7 +310,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
     if not self.isInitialized then initialize(); end;
-    if not SolidModeling.isInitialized then initializeSolidModeling(url); end;
+    if not SolidModelingInitialized then initializeSolidModeling(url); end;
     local modelContain=nil;
     local assetid_string=tostring(assetid);
     local ErrorInfo=nil;
@@ -346,7 +344,7 @@ Loads a SolidModel asset and returns its ChildData property (used internally to 
 ]]
 function mod:LoadSolidModel(assetid:number)
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
-    if not SolidModeling.isInitialized then
+    if not SolidModelingInitialized then
         logMsg({
             MessageType="error",
             MessageText="You must initialize the solid model part of module before calling the loadSolidModel method"
@@ -354,7 +352,7 @@ function mod:LoadSolidModel(assetid:number)
         return nil;
     end;
     local assetid_string=tostring(assetid);
-    local suc,res,err=requestORQueue(SolidModeling.urlToFetch,assetid,nil,nil,"SolidModel");
+    local suc,res,err=requestORQueue(SolidModelingUrl,assetid,nil,nil,"SolidModel");
     if not suc then
         logMsg({
             MessageType="error",
