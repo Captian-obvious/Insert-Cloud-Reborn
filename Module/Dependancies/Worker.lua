@@ -1,37 +1,10 @@
 --!optimize 2
 
 local module = {};
-local coroutine_create=coroutine.create;
-local coroutine_resume=coroutine.resume;
-local coroutine_status=coroutine.status;
-local coroutine_running=coroutine.running;
-local coroutine_wrap=coroutine.wrap;
 local task_spawn=task.spawn;
-local task_wait=task.wait;
-local task_delay=task.delay;
-local math_min=math.min;
-local math_max=math.max;
-local math_random=math.random;
-local math_floor=math.floor;
-local math_ceil=math.ceil;
-local math_abs=math.abs;
-local math_exp=math.exp;
-local math_log=math.log;
-local string_upper=string.upper;
-local string_sub=string.sub;
-local string_gsub=string.gsub;
-local string_split=string.split;
-local string_format=string.format;
-local string_gmatch=string.gmatch;
-local string_char=string.char;
 local task_defer=task.defer;
-local table_insert=table.insert;
+local task_wait=task.wait;
 local table_pack=table.pack;
-local table_move=table.move;
-local table_remove=table.remove;
-local table_concat=table.concat;
-local table_find=table.find;
-local table_sort=table.sort;
 local table_unpack=table.unpack;
 export type Worker={
     PendingWorkers:{thread},

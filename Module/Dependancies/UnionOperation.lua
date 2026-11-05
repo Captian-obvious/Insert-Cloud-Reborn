@@ -2,7 +2,7 @@
 
 local geometryService=game:GetService("GeometryService");
 local mod={
-    _VERSION="11.0.0",
+    _VERSION="9.0.0",
     modules={
         modelAssembler=nil, --populated at runtime
         icloud=nil, --populated at runtime
@@ -124,7 +124,7 @@ function centerUnionPivot(union,options,parent)
     union:SubstituteGeometry(new);
 end;
 
-function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolean) -- FINALLY NO LONGER EXPERIMENTAL!
+function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolean)
     local suc,model=pcall(parse,childData);
     if not suc then
         warn("Parse Failed: "..model);
@@ -170,21 +170,29 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
         end;
     end;
     local old=partToAttachTo;
+    local collisionFidelity=options.CollisionFidelity;
+    local renderFidelity=options.RenderFidelity;
+    if not collisionFidelity then
+        collisionFidelity=Enum.CollisionFidelity.Default;
+    end;
+    if not renderFidelity then
+        renderFidelity=Enum.RenderFidelity.Performance;
+    end;
     local suc,Union=pcall(function()
         if isIntersection then
-            partToAttachTo=geometryService:IntersectAsync(partToAttachTo,parts,options)[1];
+            partToAttachTo=partToAttachTo:IntersectAsync(parts,collisionFidelity,renderFidelity);
             partToAttachTo.Parent=model;
-            partToAttachTo=geometryService:IntersectAsync(partToAttachTo,{old},options)[1]; -- this is odd but fixes the problems
+            partToAttachTo=partToAttachTo:IntersectAsync({old},collisionFidelity,renderFidelity); -- this is odd but fixes the problems
             partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
             centerUnionPivot(partToAttachTo,options,model);
             return partToAttachTo;
         end;
-        partToAttachTo=geometryService:UnionAsync(partToAttachTo,parts,options)[1];
+        partToAttachTo=partToAttachTo:UnionAsync(parts,collisionFidelity,renderFidelity);
         partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
         old=partToAttachTo;
         if #negativeParts~=0 then
             partToAttachTo.Parent=model;
-            partToAttachTo=geometryService:SubtractAsync(partToAttachTo,negativeParts,options)[1];
+            partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,collisionFidelity,renderFidelity);
             partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
         end;
         centerUnionPivot(partToAttachTo,options,model);

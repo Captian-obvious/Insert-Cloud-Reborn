@@ -36,6 +36,38 @@ local b64_encode=b64.encode;
 local spawnWorker=promise.spawnWorker;
 local spawnWorkerDeferred=promise.spawnWorkerDeferred;
 local InstanceNewMeshPartRef=Instance_new("MeshPart");
+local propExceptions={
+    ["Attachment0"]=true,
+    ["Attachment1"]=true,
+    ["Part0"]=true,
+    ["Part1"]=true,
+    ["Value"]=true,
+    ["Adornee"]=true,
+    ["NextSelectionUp"]=true,
+    ["NextSelectionDown"]=true,
+    ["NextSelectionLeft"]=true,
+    ["NextSelectionRight"]=true,
+    ["SelectionImageObject"]=true,
+    ["PrimaryPart"]=true,
+    ["SoundGroup"]=true,
+    ["CameraSubject"]=true,
+    ["CustomPhysicalProperties"]=true,
+    ["MaterialVariant"]=true,
+};
+local propRemappings={
+    ["xmlRead_MaxDistance_3"]="MaxDistance",
+    ["size"]="Size",
+    ["size_xml"]="Size",
+    ["heat_xml"]="Heat",
+    ["Health_XML"]="Health",
+    ["shape"]="Shape",
+    ["formFactorRaw"]="FormFactor",
+    ["formFactor"]="FormFactor",
+    ["Part1Internal"]="Part1",
+    ["Part0Internal"]="Part0",
+    ["MaterialVariantSerialized"]="MaterialVariant",
+    ["Color3uint8"]="Color",
+};
 local meshCache={};
 local loadingMeshes={};
 local templateCache = {};
@@ -81,12 +113,15 @@ local function vector3Func(propType,value)
     return Vector3_new(); 
 end;
 local function resolveEnum(enum:Enum,int:number)
-    local cache=resolvedEnums[enum];
-    if not cache then
-        cache={};
-        resolvedEnums[enum]=cache;
-    end;
-    return cache[int] or enum:FromValue(int);
+    --local cache=resolvedEnums[enum];
+    --if not cache then
+    --    cache={};
+    --    resolvedEnums[enum]=cache;
+    --end;
+    --if cache[int] then
+    --    return cache[int];
+    --end;
+    return enum:FromValue(int);
 end;
 local propertyTypes={
     -- things that need additonal parsing go here
@@ -483,31 +518,12 @@ local class_initializers={
         return obj;
     end,
 };
-local propExceptions={
-    ["Attachment0"]=true,
-    ["Attachment1"]=true,
-    ["Part0"]=true,
-    ["Part1"]=true,
-    ["Value"]=true,
-    ["Adornee"]=true,
-    ["NextSelectionUp"]=true,
-    ["NextSelectionDown"]=true,
-    ["NextSelectionLeft"]=true,
-    ["NextSelectionRight"]=true,
-    ["SelectionImageObject"]=true,
-    ["PrimaryPart"]=true,
-    ["SoundGroup"]=true,
-    ["CameraSubject"]=true,
-    ["CustomPhysicalProperties"]=true,
-    ["MaterialVariant"]=true,
-};
+
 --[[ Build properties tree --]]
 local function initProp(obj,propName,prop,refs,loadSettings)
-    propName=string_upper(string_sub(propName,1,1))..string_sub(propName,2); --case the property correctly
+    propName=propRemappings[propName] or propName; --some properties dont have the name they have ingame, we fix that here
     local propVal=prop.value;
-    if (propName=="Color3uint8") then
-        propName="Color"; -- fixes the format changes to RBXM
-    elseif (propName=="Source") then
+    if (propName=="Source") then
         obj:SetAttribute("Source",compile_prop(propName,prop,refs,obj));
     elseif (propName=="Disabled" and propVal==false) then
         obj:SetAttribute("IC_Enabled",not propVal);
@@ -517,19 +533,10 @@ local function initProp(obj,propName,prop,refs,loadSettings)
     elseif ((propName=="Playing" or propName=="IsPlaying") and propVal==true) then
         obj.Playing=false;
         obj:SetAttribute("IC_Playing",propVal);
-    elseif (propName=="Part1Internal") then
-        obj.Part1=compile_prop("Part1",prop,refs,obj);
-    elseif (propName=="Part0Internal") then
-        obj.Part0=compile_prop("Part0",prop,refs,obj);
-    elseif (propName=="MaterialVariantSerialized") then
-        obj.MaterialVariant=compile_prop("MaterialVariant",prop,refs,obj);
     elseif (propName=="Locked" and mod.Configuration.UnlockParts) then
         obj.Locked=false;
-        --some properties dont have the name they have ingame, we fix that here
-    elseif (string_find(propName,"_")) then
-        propName=string_match(propName,"(.*)_");
     end;
-    if (obj and (obj[propName]~=nil or propExceptions[propName]) and propName~="Disabled" and propName~="Locked" and propName~="PivotOffset" and propName~="Playing" and propName~="IsPlaying") then
+    if (obj and (obj[propName]~=nil or propExceptions[propName]) and propName~="Disabled" and propName~="Enabled" and propName~="Locked" and propName~="PivotOffset" and propName~="Playing" and propName~="IsPlaying") then
         obj[propName]=compile_prop(propName,prop,refs,obj);
     end;
 end;
@@ -592,18 +599,6 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
     end;
     promise.waitForWorkers(workers);
     buildProps(instances,refs,loadSettings);
-    --local applyAttrs=loadSettings and loadSettings.ApplyAttributes;
-    --for i=1,#instances do
-    --    local obj,props,attrs=table_unpack(instances[i]);
-    --    for propName, prop in props do
-    --        pcall(initProp,obj,propName,prop,refs,loadSettings);
-    --    end;
-    --    if applyAttrs and attrs~=nil then
-    --        for attrName,attr in attrs do
-    --            pcall(obj.SetAttribute,obj,attrName,compile_prop(attrName,attr,refs,obj));
-    --        end;
-    --    end;
-    --end;
     return parent;
 end;
 --[[ Initializes module --]]
