@@ -157,11 +157,11 @@ type LegacyAssetLocationData struct {
 }
 
 type OutputRBXM struct {
-	Metadata      map[string]any      `json:"metadata"`
-	ClassCount    uint32              `json:"class_count"`
-	InstanceCount uint32              `json:"instance_count"`
-	ClassRef      []lib.ClassRefEntry `json:"class_ref"`
-	Tree          []*lib.Instance     `json:"tree"`
+	Metadata      map[string]any `json:"metadata"`
+	ClassCount    uint32         `json:"class_count"`
+	InstanceCount uint32         `json:"instance_count"`
+	// ClassRef      []lib.ClassRefEntry `json:"class_ref"`
+	Tree []*lib.Instance `json:"tree"`
 }
 
 type ErrorPageData struct {
@@ -534,8 +534,8 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 		Metadata:      rbxm.Metadata,
 		ClassCount:    rbxm.ClassCount,
 		InstanceCount: rbxm.InstanceCount,
-		ClassRef:      rbxm.ClassRef,
-		Tree:          rbxm.Tree,
+		// ClassRef:      rbxm.ClassRef,
+		Tree: rbxm.Tree,
 	}
 	err = json.NewEncoder(w).Encode(jsonData)
 	if err != nil {
@@ -989,8 +989,8 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		Metadata:      rbxm.Metadata,
 		ClassCount:    rbxm.ClassCount,
 		InstanceCount: rbxm.InstanceCount,
-		ClassRef:      rbxm.ClassRef,
-		Tree:          rbxm.Tree,
+		// ClassRef:      rbxm.ClassRef,
+		Tree: rbxm.Tree,
 	}
 	jDat, err := json.Marshal(jsonData)
 	if err != nil {

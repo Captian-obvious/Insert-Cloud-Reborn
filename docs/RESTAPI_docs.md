@@ -30,18 +30,6 @@ real asset, real assets have actual Roblox properties such as "Material" and "CF
     "metadata":{
         "ExplicitAutoJoints":true
     },
-    "class_ref":[
-        {
-            "Name":"SomeClass",
-            "refs":[0],
-            "sizeof":1
-        },
-        {
-            "Name":"SomeOtherClass",
-            "refs":[1],
-            "sizeof":1
-        }
-    ],
     "instance_count":2,
     "class_count":2,
     "tree":[
