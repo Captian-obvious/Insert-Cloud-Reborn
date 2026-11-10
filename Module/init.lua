@@ -67,7 +67,7 @@ export type LoggerMessage={
     Arguments: any,
 }
 local function logMsg(msg:LoggerMessage,...)
-    local prefix="Insert Cloud:";
+    local prefix="[ Insert Cloud ]";
     if typeof(msg)=="string" then
         msg={
             MessageType="info",
@@ -75,11 +75,11 @@ local function logMsg(msg:LoggerMessage,...)
         };
     end;
     if msg.MessageType=="warn" then
-        warn(prefix.." "..msg.MessageText);
+        warn(prefix,msg.MessageText);
     elseif msg.MessageType=="info" then
         print(prefix,msg.MessageText);
     elseif msg.MessageType=="error" then
-        warn(prefix.." ERR:"..msg.MessageText);
+        warn(prefix,"ERR: "..msg.MessageText);
     else
         print(prefix,msg.MessageText); --indentical to info
     end;
