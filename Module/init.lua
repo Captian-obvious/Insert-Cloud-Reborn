@@ -216,7 +216,7 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
     end;
     return nil,errInf
 end;
-local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
+local function PrepareAsset(model:Model,position:Vector3?,loadSettings)
     if typeof(model)~="Instance" or not model:IsA("Model") then
         logMsg({
             MessageType="error",
@@ -241,11 +241,10 @@ local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadS
             v:Destroy();
         end;
     end;
-    model.Parent=parent or Configuration.DefaultParent or workspace;
 end;
 local mod={
     isInitialized=false,
-    _VERSION="8.9.0", --module version
+    _VERSION="9.2.0", --module version
     _DEVELOPERS={
         ["Superduperdev2 (@Superduperbloxer2)"]="Lead Developer (RBXM Parser, LXM modifications, Insert Cloud Module)", -- aka Captian-obvious (Lead Developer)
         ["Fallen (@josejr0322)"]="Loadstring module", -- loadstring provided
@@ -305,9 +304,8 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
     if not self.isInitialized then initialize(); end;
     if not SolidModelingInitialized then initializeSolidModeling(url); end;
-    local modelContain=nil;
+    local model,errinf;
     local assetid_string=tostring(assetid);
-    local ErrorInfo=nil;
     logMsg({
         MessageType="info",
         MessageText="Loading asset "..assetid_string
@@ -315,25 +313,24 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if Configuration.Caching then
         local cache=insertCloudCache[assetid_string];
         if cache then
-            modelContain=cache:Clone();
-            modelContain.Parent=parent;
+            model=cache:Clone();
             logMsg({
                 MessageType="info",
                 MessageText="Loaded asset "..assetid_string.." from cache successfully!"
             });
         else
-            modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
-            if modelContain then
-                insertCloudCache[assetid_string]=modelContain:Clone();
+            model,errinf=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
+            if model then
+                insertCloudCache[assetid_string]=model:Clone();
             end;
         end;
     else
-        modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
+        model,errinf=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
     end;
-    if modelContain then
-        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or getDefaultSettings());
+    if model then
+        PrepareAsset(model,position,loadSettings or getDefaultSettings());
     end;
-    return modelContain,ErrorInfo;
+    return model,errinf;
 end;
 --[[ 
 Loads a SolidModel asset and returns its ChildData property (used internally to make UnionOperations work)
@@ -390,13 +387,6 @@ end;
 Fixes model for completion of inserted object, insert tool also calls this for security 
 ]]
 function mod:CompileAsset(model:Model,parent:Instance?)
-    if not self.isInitialized then
-        logMsg({
-            MessageType="error",
-            MessageText="You must initialize the module before calling the compile_asset method"
-        });
-        return nil;
-    end;
     if typeof(model)~="Instance" or not model:IsA("Model") then
         logMsg({
             MessageType="error",
@@ -442,13 +432,6 @@ end;
 Restarts the server (requires *YOUR* API key) 
 ]]
 function mod:RestartServer(url:string,apikey:string,reason:string):boolean?
-    if not self.isInitialized then
-        logMsg({
-            MessageType="error",
-            MessageText="You must initialize the module before calling the RestartServer method"
-        });
-        return nil;
-    end;
     if not url or type(url)~="string" or not apikey or type(apikey)~="string" then
         logMsg({
             MessageType="error",
