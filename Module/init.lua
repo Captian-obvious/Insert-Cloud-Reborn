@@ -206,12 +206,6 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
                 });
                 return nil,errInf;
             end;
-        else
-            logMsg({
-                MessageType="error",
-                MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
-            });
-            return nil,errInf;
         end;
     else
         errInf=tostring(res);
@@ -219,8 +213,8 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
             MessageType="error",
             MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
         });
-        return nil,errInf;
     end;
+    return nil,errInf
 end;
 local function PrepareAsset(model:Model,parent:Instance?,position:Vector3?,loadSettings)
     if typeof(model)~="Instance" or not model:IsA("Model") then
@@ -336,7 +330,9 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     else
         modelContain,ErrorInfo=fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent);
     end;
-    PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or getDefaultSettings());
+    if modelContain then
+        PrepareAsset(modelContain,parent or mod.Configuration.DefaultBuildParent,position,loadSettings or getDefaultSettings());
+    end;
     return modelContain,ErrorInfo;
 end;
 --[[ 
@@ -367,15 +363,14 @@ function mod:LoadSolidModel(assetid:number)
             if instance then
                 return instance.properties.ChildData.value;
             end;
-            return nil;
         end;
     else
         logMsg({
             MessageType="error",
             MessageText="Failed to load asset "..assetid_string..": Response was nil (did you do it correctly?)"
         });
-        return nil;
     end;
+    return nil;
 end;
 --[[ 
 Gets default settings for loading assets 
