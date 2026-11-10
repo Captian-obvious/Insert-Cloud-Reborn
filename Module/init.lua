@@ -314,6 +314,7 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
         local cache=insertCloudCache[assetid_string];
         if cache then
             model=cache:Clone();
+            model.Parent=parent;
             logMsg({
                 MessageType="info",
                 MessageText="Loaded asset "..assetid_string.." from cache successfully!"
