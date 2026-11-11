@@ -88,7 +88,7 @@ local function initCenter(mdl:Model)
     cent_part.CanCollide=false;
     cent_part.Transparency=1;
     cent_part.Size=Vector3.new(0,0,0);
-    cent_part.CFrame=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);;
+    cent_part.CFrame=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);
     cent_part.Parent=mdl;
     mdl.PrimaryPart=cent_part;
 end;
