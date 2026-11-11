@@ -33,6 +33,13 @@ local SolidModelingInitialized=false;
 local SolidModelingUrl=nil;
 local queue={};
 local queueSize=500;
+local MessageTypes={
+    ["info"]=print,
+    ["warn"]=warn,
+    ["error"]=function(prefix,...)
+        warn(prefix,"ERR:",...);
+    end,
+};
 
 export type QueueEntry={
     Sending:boolean,
@@ -62,13 +69,6 @@ end;
 --[[
 Logs various messages about the state of the module, and of <code>LoggerMessage.MessageType</code>
 ]]
-local MessageTypes={
-    ["info"]=print,
-    ["warn"]=warn,
-    ["error"]=function(prefix,...)
-        warn(prefix,"ERR:",...);
-    end,
-};
 local function logMsg(msg:LoggerMessage,...)
     local prefix="[ Insert Cloud ]";
     if typeof(msg)=="string" then
@@ -85,7 +85,6 @@ local function logMsg(msg:LoggerMessage,...)
     end;
     return msg.Arguments; -- return the error info if any
 end;
---[[ PrintDebug ]]
 local function print_if_debug(...)
     if Configuration.DebugMode then
         print(...);
