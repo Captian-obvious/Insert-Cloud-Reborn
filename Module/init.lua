@@ -224,9 +224,6 @@ local function PrepareAsset(model:Model,position:Vector3?,loadSettings)
         });
         return nil;
     end;
-    if position then
-        model:MoveTo(position);
-    end;
     local anchorParts = loadSettings.AnchorParts;
     local removeDecals = loadSettings.RemoveDecals;
     local removeScripts = loadSettings.RemoveScripts;
@@ -240,6 +237,9 @@ local function PrepareAsset(model:Model,position:Vector3?,loadSettings)
         elseif (v:IsA("BaseScript") or v:IsA("ModuleScript")) and removeScripts then
             v:Destroy();
         end;
+    end;
+    if position then
+        model:MoveTo(position);
     end;
 end;
 local mod={
@@ -302,7 +302,6 @@ function mod:LoadAssetAsync(url:Secret|string,api_key:Secret,assetid:number,load
     if type(url) ~= "string" and typeof(url)~="Secret" then return error("URL Parameter is invalid, must be a valid string") end;
     if type(assetid) ~= "number" then return error("AssetId Parameter is invalid, must be a valid number") end;
     if loadSettings and type(loadSettings) ~= "table" then return error("Settings Parameter is invalid, must be a valid table or nil") end;
-    if not self.isInitialized then initialize(); end;
     if not SolidModelingInitialized then initializeSolidModeling(url); end;
     local model,errinf;
     local assetid_string=tostring(assetid);
@@ -352,10 +351,7 @@ function mod:LoadSolidModel(assetid:number)
             MessageType="error",
             MessageText="Failed to load asset "..assetid_string..": "..tostring(res)
         });
-        return nil;
-    end;
-    if res~=nil then
-        print_if_debug(res);
+    elseif res~=nil then
         if res.tree then
             local instance=res.tree[1];
             if instance then
@@ -410,7 +406,7 @@ function mod:CompileAsset(model:Model,parent:Instance?)
     model.Parent=parent or Configuration.DefaultParent or workspace;
     model:MakeJoints();
     for i,v in pairs(root_instances) do
-        v.Parent=parent or Configuration.DefaultParent or workspace;
+        v.Parent=model.Parent;
     end;
     model:Destroy();
     return unpack(root_instances);
