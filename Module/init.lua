@@ -217,13 +217,6 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
     return nil,errInf
 end;
 local function PrepareAsset(model:Model,position:Vector3?,loadSettings)
-    if typeof(model)~="Instance" or not model:IsA("Model") then
-        logMsg({
-            MessageType="error",
-            MessageText="The model parameter must be a valid Model instance"
-        });
-        return nil;
-    end;
     local anchorParts = loadSettings.AnchorParts;
     local removeDecals = loadSettings.RemoveDecals;
     local removeScripts = loadSettings.RemoveScripts;
