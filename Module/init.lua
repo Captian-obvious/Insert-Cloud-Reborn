@@ -53,19 +53,6 @@ export type LoggerMessage={
     Arguments: any,
 };
 
-local function initCenter(mdl:Model)
-    local centercf,modelsize=mdl:GetBoundingBox();
-    local center=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);
-    local cent_part=Instance.new("Part",mdl);
-    cent_part.Name="CenterPart";
-    cent_part.Anchored=true;
-    cent_part.CanCollide=false;
-    cent_part.Transparency=1;
-    cent_part.Size=Vector3.new(1,1,1);
-    cent_part.CFrame=center;
-    mdl.PrimaryPart=cent_part;
-    return mdl;
-end;
 --[[
 Logs various messages about the state of the module, and of <code>LoggerMessage.MessageType</code>
 ]]
@@ -92,6 +79,18 @@ local function print_if_debug(...)
 end;
 local function getDefaultSettings()
     return Configuration.DefaultSettings;
+end;
+local function initCenter(mdl:Model)
+    local centercf,modelsize=mdl:GetBoundingBox();
+    local cent_part=Instance.new("Part");
+    cent_part.Name="CenterPart";
+    cent_part.Anchored=true;
+    cent_part.CanCollide=false;
+    cent_part.Transparency=1;
+    cent_part.Size=Vector3.new(0,0,0);
+    cent_part.CFrame=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);;
+    cent_part.Parent=mdl;
+    mdl.PrimaryPart=cent_part;
 end;
 local function handleQueue(url:string,assetId:number,ver:number,api_key:Secret,assetType:string)
     logMsg({
@@ -196,7 +195,8 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
                     MessageType="info",
                     MessageText="Loaded asset "..assetid_string.." successfully!"
                 });
-                return initCenter(loaded);
+                initCenter(loaded);
+                return loaded;
             else
                 logMsg({
                     MessageType="error",
