@@ -31,6 +31,8 @@ local serverplaceid=game.PlaceId; --server place id
 local insertCloudCache={};
 local SolidModelingInitialized=false;
 local SolidModelingUrl=nil;
+local queue={};
+local queueSize=500;
 
 export type QueueEntry={
     Sending:boolean,
@@ -38,17 +40,15 @@ export type QueueEntry={
     AssetId:number,
     Fire:BindableEvent,
 }
-local queue={};
-local queueSize=500;
---[[ Gets model center ]]
-local function GetModelCenter(mdl:Model):CFrame
-    local centercf,_=mdl:GetBoundingBox();
-    local modelsize=mdl:GetExtentsSize();
-    local baseCF=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);
-    return baseCF;
-end;
+export type LoggerMessage={
+    MessageType: string,
+    MessageText: string,
+    Arguments: any,
+};
+
 local function initCenter(mdl:Model)
-    local center=GetModelCenter(mdl);
+    local centercf,modelsize=mdl:GetBoundingBox();
+    local center=CFrame.new(centercf.Position)*CFrame.new(0,-modelsize.Y/2,0);
     local cent_part=Instance.new("Part",mdl);
     cent_part.Name="CenterPart";
     cent_part.Anchored=true;
@@ -57,15 +57,18 @@ local function initCenter(mdl:Model)
     cent_part.Size=Vector3.new(1,1,1);
     cent_part.CFrame=center;
     mdl.PrimaryPart=cent_part;
+    return mdl;
 end;
 --[[
 Logs various messages about the state of the module, and of <code>LoggerMessage.MessageType</code>
 ]]
-export type LoggerMessage={
-    MessageType: string,
-    MessageText: string,
-    Arguments: any,
-}
+local MessageTypes={
+    ["info"]=print,
+    ["warn"]=warn,
+    ["error"]=function(prefix,...)
+        warn(prefix,"ERR:",...);
+    end,
+};
 local function logMsg(msg:LoggerMessage,...)
     local prefix="[ Insert Cloud ]";
     if typeof(msg)=="string" then
@@ -74,12 +77,9 @@ local function logMsg(msg:LoggerMessage,...)
             MessageText=msg,
         };
     end;
-    if msg.MessageType=="warn" then
-        warn(prefix,msg.MessageText);
-    elseif msg.MessageType=="info" then
-        print(prefix,msg.MessageText);
-    elseif msg.MessageType=="error" then
-        warn(prefix,"ERR: "..msg.MessageText);
+    local msgType=msg.MessageType;
+    if MessageTypes[msgType] then
+        MessageTypes[msgType](prefix,msg.MessageText,...);
     else
         print(prefix,msg.MessageText); --indentical to info
     end;
@@ -192,13 +192,12 @@ local function fetchAndDecode(assetid,ver,api_key,url,loadSettings,parent)
         if res~=nil then
             data.modelData=res;
             local loaded=modelAssembler:buildAsset(data,parent,loadSettings or getDefaultSettings());
-            initCenter(loaded);
             if loaded~=nil then
                 logMsg({
                     MessageType="info",
                     MessageText="Loaded asset "..assetid_string.." successfully!"
                 });
-                return loaded;
+                return initCenter(loaded);
             else
                 logMsg({
                     MessageType="error",
