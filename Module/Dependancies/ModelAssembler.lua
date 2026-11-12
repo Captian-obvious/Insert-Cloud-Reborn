@@ -36,25 +36,7 @@ local b64_encode=b64.encode;
 local spawnWorker=promise.spawnWorker;
 local spawnWorkerDeferred=promise.spawnWorkerDeferred;
 local InstanceNewMeshPartRef=Instance_new("MeshPart");
-local propExceptions={
-    ["Attachment0"]=true,
-    ["Attachment1"]=true,
-    ["Part0"]=true,
-    ["Part1"]=true,
-    ["Value"]=true,
-    ["Adornee"]=true,
-    ["NextSelectionUp"]=true,
-    ["NextSelectionDown"]=true,
-    ["NextSelectionLeft"]=true,
-    ["NextSelectionRight"]=true,
-    ["SelectionImageObject"]=true,
-    ["PrimaryPart"]=true,
-    ["SoundGroup"]=true,
-    ["CameraSubject"]=true,
-    ["CustomPhysicalProperties"]=true,
-    ["MaterialVariant"]=true,
-};
-local propRemappings={
+local propRemappings={ -- property remappings for properties not serialized with their in-game name
     ["xmlRead_MaxDistance_3"]="MaxDistance",
     ["size"]="Size",
     ["size_xml"]="Size",
@@ -68,6 +50,14 @@ local propRemappings={
     ["MaterialVariantSerialized"]="MaterialVariant",
     ["Color3uint8"]="Color",
 };
+local propSpecials={ --properties with special handling (do not apply automatically)
+    ["Disabled"]=true,
+    ["Locked"]=true,
+    ["PivotOffset"]=true,
+    ["IsPlaying"]=true,
+    ["Playing"]=true
+};
+
 local meshCache={};
 local loadingMeshes={};
 local templateCache = {};
@@ -150,6 +140,7 @@ local propertyTypes={
         local propName=prop_instance.propName;
         local classInstance=prop_instance.classInstance;
         if not classInstance then return nil; end;
+        if (classInstance[propName]==nil) then return nil; end;
         local success, defaultVal = pcall(function() return classInstance[propName]; end);
         if success then
             return resolveEnum(defaultVal.EnumType,value);
@@ -289,13 +280,11 @@ local function compile_prop(prop,v,refs,class)
         else
             return compile(typed,value,refs);
         end;
-    else
-        if value~=nil then
-            return value;
-        else
-            return nil;
-        end;
     end;
+    if value~=nil then
+        return value;
+    end;
+    return nil;
 end;
 local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,workers)
     if loadSettings.DisableSolidModeling then
@@ -441,12 +430,13 @@ local class_initializers={
             local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
             local OrigSize=compile_prop("Size",prop.size,refs,class_name);
             -- everything else is applied during the properties step so we just need to set up the mesh
-            local mesh=Instance_new("SpecialMesh",meshPart);
+            local mesh=Instance_new("SpecialMesh");
             mesh.MeshType=Enum.MeshType.FileMesh;
             mesh.MeshId=meshId;
             mesh.TextureId=textureId;
             mesh.Scale=OrigSize/InitialSize;
             mesh:SetAttribute("initialSize",InitialSize);
+            mesh.Parent=meshPart;
         end;
         return meshPart;
     end,
@@ -536,7 +526,7 @@ local function initProp(obj,propName,prop,refs,loadSettings)
     elseif (propName=="Locked" and mod.Configuration.UnlockParts) then
         obj.Locked=false;
     end;
-    if (obj and (obj[propName]~=nil or propExceptions[propName]) and propName~="Disabled" and propName~="Enabled" and propName~="Locked" and propName~="PivotOffset" and propName~="Playing" and propName~="IsPlaying") then
+    if not propSpecials[propName] then
         obj[propName]=compile_prop(propName,prop,refs,obj);
     end;
 end;
@@ -614,18 +604,16 @@ function mod:initialize(config,main)
 end;
 --[[ Builds asset from its tree and related data --]]
 function mod:buildAsset(data,root_parent,loadSettings)
-    if self.isInitialized then
-        root_parent=root_parent or workspace;
-        local rootModel=Instance_new("Model");
-        rootModel.Parent=root_parent;
-        rootModel.Name=data.AssetIdParsed or "UNNAMED_ASSET";
-        local rbxm=data.modelData; -- this is json that is provided
-        loadSettings=loadSettings or {};
-        return buildModel(rootModel,rootModel,rbxm.tree,{},loadSettings);
-    else
+    if not self.isInitialized then
         warn("ModelAssembler is not initialized.");
         return nil;
     end;
+    root_parent=root_parent or workspace;
+    local rootModel=Instance_new("Model");
+    rootModel.Parent=root_parent;
+    rootModel.Name=data.AssetIdParsed or "UNNAMED_ASSET";
+    loadSettings=loadSettings or {};
+    return buildModel(rootModel,rootModel,data.modelData.tree,{},loadSettings);
 end;
 --[[ Creates a Script or LocalScript `LoadCode` --]]
 function mod:NewScript(isLocal,sandboxType)
