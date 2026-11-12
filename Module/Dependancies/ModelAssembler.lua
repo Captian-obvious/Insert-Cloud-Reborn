@@ -140,13 +140,7 @@ local propertyTypes={
         local propName=prop_instance.propName;
         local classInstance=prop_instance.classInstance;
         if not classInstance then return nil; end;
-        if (classInstance[propName]==nil) then return nil; end;
-        local success, defaultVal = pcall(function() return classInstance[propName]; end);
-        if success then
-            return resolveEnum(defaultVal.EnumType,value);
-        end;
-        warn("Enum inference failed for property:", propName, "on", tostring(classInstance));
-        return nil;
+        return resolveEnum(classInstance[propName].EnumType,value);
     end,
     ["cframe"]=function(typed,value,refs)
         local pos=value.position.vector3 or {0,0,0};
