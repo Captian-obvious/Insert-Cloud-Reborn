@@ -131,7 +131,7 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
         return nil;
     end;
     local partToAttachTo=nil;
-    local theparts=model:GetChildren();
+    local theparts=model:GetDescendants();
     local negativeParts={};
     local parts={};
     local partslen=#theparts;
@@ -140,60 +140,34 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
         model:Destroy();
         return nil;
     end;
-    partToAttachTo=theparts[1];
-    if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
-        table_insert(negativeParts,partToAttachTo);
-        for i=2,partslen do
-            local v=theparts[i];
-            if not v:GetAttribute("IsNegateOperation") then
-                local old=v;
-                partToAttachTo=Instance.new("Part");
-                partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
-                partToAttachTo.Position=old.Position
-                partToAttachTo.Anchored=old.Anchored;
-                partToAttachTo.Transparency=1;
-                partToAttachTo.CanCollide=false;
-                partToAttachTo.Name="UnionBasePart";
-                partToAttachTo.Parent=model;
-                break;
-            end;
-        end;
-    end;
     for i=1,partslen do
         local v=theparts[i];
-        if v:IsA("BasePart") and v~=partToAttachTo then
+        if v:IsA("BasePart") then
             if v:GetAttribute("IsNegateOperation") then
-                table_insert(negativeParts,v);
+                negativeParts[#negativeParts+1]=v;
+            elseif partToAttachTo==nil then
+                partToAttachTo=v;
+            elseif v.Size>=partToAttachTo.Size then
+                parts[#parts+1]=partToAttachTo;
+                partToAttachTo=v;
             else
-                table_insert(parts,v);
+                parts[#parts+1]=v;
             end;
         end;
     end;
     local old=partToAttachTo;
     local collisionFidelity=options.CollisionFidelity;
     local renderFidelity=options.RenderFidelity;
-    if not collisionFidelity then
-        collisionFidelity=Enum.CollisionFidelity.Default;
-    end;
-    if not renderFidelity then
-        renderFidelity=Enum.RenderFidelity.Performance;
-    end;
     local suc,Union=pcall(function()
-        if isIntersection then
+        if isIntersection and #parts~=0 then
             partToAttachTo=partToAttachTo:IntersectAsync(parts,collisionFidelity,renderFidelity);
-            partToAttachTo.Parent=model;
-            partToAttachTo=partToAttachTo:IntersectAsync({old},collisionFidelity,renderFidelity); -- this is odd but fixes the problems
-            partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-            centerUnionPivot(partToAttachTo,options,model);
-            return partToAttachTo;
+        else
+            partToAttachTo=partToAttachTo:UnionAsync(parts,collisionFidelity,renderFidelity);
         end;
-        partToAttachTo=partToAttachTo:UnionAsync(parts,collisionFidelity,renderFidelity);
-        partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
-        old=partToAttachTo;
         if #negativeParts~=0 then
+            old=partToAttachTo;
             partToAttachTo.Parent=model;
             partToAttachTo=partToAttachTo:SubtractAsync(negativeParts,collisionFidelity,renderFidelity);
-            partToAttachTo:SetAttribute("IsNegateOperation", old:GetAttribute("IsNegateOperation"));
         end;
         centerUnionPivot(partToAttachTo,options,model);
         return partToAttachTo;
@@ -201,10 +175,6 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
     model:Destroy();
     if not suc then
         warn("Union operation failed: "..tostring(Union));
-        return nil;
-    end;
-    if not Union then
-        warn("Union operation failed: No part was returned.");
         return nil;
     end;
     return Union;

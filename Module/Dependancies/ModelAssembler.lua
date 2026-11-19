@@ -36,6 +36,8 @@ local b64_encode=b64.encode;
 local spawnWorker=promise.spawnWorker;
 local spawnWorkerDeferred=promise.spawnWorkerDeferred;
 local InstanceNewMeshPartRef=Instance_new("MeshPart");
+local Debug=false;
+local isInitialized=false;
 local propRemappings={ -- property remappings for properties not serialized with their in-game name
     ["xmlRead_MaxDistance_3"]="MaxDistance",
     ["size"]="Size",
@@ -57,22 +59,15 @@ local propSpecials={ --properties with special handling (do not apply automatica
     ["IsPlaying"]=true,
     ["Playing"]=true
 };
-
+local mod={};
 local meshCache={};
 local loadingMeshes={};
 local templateCache = {};
 local resolvedEnums = {};
-
-local mod={
-    isInitialized=false,
-    Configuration={},
-    debug_mode=false, --prints additional stuff to console
-};
-
+local Configuration={};
 local function print_if_debug(...)
-    if mod.debug_mode then
-        print(...);
-    end;
+    if not Debug then return end;
+    print(...);
 end;
 local function colorFunc(propType,value)
     if value then
@@ -120,6 +115,7 @@ local propertyTypes={
         if encoded then
             return b64_decode(value);
         else
+            if string_len(value)>12582912 then return "IWasTruncatedBecauseIWasACrashMethodThatWasDifficultToPatchNormallySoInsteadDidThisGetRektSkid" end;
             return value;
         end;
     end,
@@ -280,51 +276,55 @@ local function compile_prop(prop,v,refs,class)
     end;
     return nil;
 end;
-local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,workers)
-    if loadSettings.DisableSolidModeling then
-        -- fallback to old behavior (js make the instance)
-        return Instance_new(class_name);
+local function compileFidelities(prop)
+    local colfidelity,rendfidelity,fluidFidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic,Enum.FluidFidelity.Automatic;
+    if prop.CollisionFidelity then
+        colfidelity=resolveEnum(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
     end;
+    if prop.RenderFidelity then
+        rendfidelity=resolveEnum(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
+    end;
+    if prop.FluidFidelity then
+        fluidFidelity=resolveEnum(Enum.FluidFidelity,prop.FluidFidelity.value) or Enum.FluidFidelity.Automatic;
+    end;
+    return colfidelity,rendfidelity,fluidFidelity;
+end;
+local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,workers)
     local typeToInit=(class_name~="NegateOperation") and class_name or "UnionOperation";
     local isIntersection=(typeToInit=="IntersectOperation");
     local experimental=loadSettings.ExperimentalUnions;
     local part=Instance_new(typeToInit);
-    local suc,err=pcall(spawnWorker,workers,function()
-        local model;
-        local childData=(prop.ChildData~=nil and prop.ChildData.value~=nil and type(prop.ChildData.value)=="string" and string_len(prop.ChildData.value)>0) and compile_prop("ChildData",prop.ChildData,refs,part) or nil;
-        local childData2=(prop.ChildData2~=nil and prop.ChildData2.value~=nil and type(prop.ChildData2.value)=="string" and string_len(prop.ChildData2.value)>0) and compile_prop("ChildData2",prop.ChildData2,refs,part) or nil;
-        local assetData=(prop.AssetData~=nil and prop.AssetData.value~=nil and type(prop.AssetData.value)=="string" and string_len(prop.AssetData.value)>0) and compile_prop("AssetData",prop.AssetData,refs,part) or nil;
-        local assetId=(prop.AssetId~=nil and prop.AssetId.value~=nil and type(prop.AssetId.value)=="string" and string_len(prop.AssetId.value)>0) and compile_prop("AssetId",prop.AssetId,refs,part) or nil;
-        local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
-        if prop.CollisionFidelity and prop.CollisionFidelity.value then
-            colfidelity=resolveEnum(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
-        end;
-        if prop.RenderFidelity and prop.RenderFidelity.value then
-            rendfidelity=resolveEnum(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
-        end;
+    local tags=inst.tags;
+    local isNegative=(class_name=="NegateOperation") or (tags and table_find(tags,"rbxNegated"));
+    spawnWorker(workers,function()
+        local colfidelity,rendfidelity,fluidFidelity=compileFidelities(prop);
         local options={
             CollisionFidelity=colfidelity,
             RenderFidelity=rendfidelity,
+            FluidFidelity=fluidFidelity,
             SplitApart=false, --typically unions are not split apart, but this can be changed in the future if needed
         };
-        if assetId~=nil then --priority 1
-            model=union:applyAssetId(assetId,options,isIntersection);
-        elseif childData~=nil or childData2~=nil then --priority 2
-            model=union:applyChildData((childData2~=nil) and childData2 or childData,options,isIntersection);
-        elseif assetData~=nil then -- I rarely see this ever fire so..... priority 3
-            model=union:applyAssetData(assetData,options,isIntersection);
+        local model;
+        if (prop.AssetId~=nil and string_len(prop.AssetId.value)>0) then --priority 1
+            model=union:applyAssetId(compile_prop("AssetId",prop.AssetId,refs,part),options,isIntersection);
+        elseif (prop.AssetData~=nil and string_len(prop.AssetData.value)>0) then
+            model=union:applyAssetData(compile_prop("AssetData",prop.AssetData,refs,part),options,isIntersection);
+        else
+            local childData=(prop.ChildData~=nil and string_len(prop.ChildData.value)>0) and compile_prop("ChildData",prop.ChildData,refs,part) or nil;
+            local childData2=(prop.ChildData2~=nil and string_len(prop.ChildData2.value)>0) and compile_prop("ChildData2",prop.ChildData2,refs,part) or nil;
+            local data=(childData2~=nil) and childData2 or childData;
+            if not data then return end;
+            model=union:applyChildData(data,options,isIntersection);
         end;
-        if model~=nil then
-            part:SubstituteGeometry(model);
-            model:Destroy();
-        end;
+        if not model then return end;
+        part:SubstituteGeometry(model);
+        model:Destroy();
     end);
-    if not suc then
-        warn("Error instantiating solid model: "..err);
-        worker.ActiveWorkers=math_max(workers.ActiveWorkers-1,0);
-    end;
-    local tags=inst.tags;
-    if (class_name=="NegateOperation") or (tags and table_find(tags,"rbxNegated")) then
+    --if not suc then
+    --    warn("Error instantiating solid model: "..err);
+    --    worker.ActiveWorkers=math_max(workers.ActiveWorkers-1,0);
+    --end;
+    if isNegative then
         part:SetAttribute("IsNegateOperation",true);
     end;
     return part;
@@ -338,17 +338,13 @@ local blocked_classes={
 };
 local class_initializers={
     ["Script"]=function(class_name,inst,prop,refs,loadSettings)
-        return templateCache[sandbox_type..class_name]:Clone();
+        return templateCache[sandbox_type][class_name]:Clone();
     end,
     ["LocalScript"]=function(class_name,inst,prop,refs,loadSettings)
-        local name=sandbox_type..class_name;
-        if loadSettings.EnableLegacyClientScripts then
-            name=name.."Legacy";
-        end;
-        return templateCache[name]:Clone();
+        return templateCache[sandbox_type][class_name]:Clone();
     end,
     ["ModuleScript"]=function(class_name,inst,prop,refs,loadSettings)
-        return templateCache[sandbox_type..class_name]:Clone();
+        return templateCache[sandbox_type][class_name]:Clone();
     end,
     ["MeshPart"]=function(class_name,inst,prop,refs,loadSettings,workers)
         local meshPart=InstanceNewMeshPartRef:Clone();
@@ -358,19 +354,11 @@ local class_initializers={
             warn("Failed to generate MeshPart with asset location \""..tostring(midprop).."\" due to error: MeshId is missing.")
             return meshPart;
         end;
-        local meshId=midprop.value;
-        local textureId="";
+        local meshId,textureId=midprop.value,"";
         if tidprop then
             textureId=tidprop.value;
         end;
         if loadSettings.EnablePreciseMeshParts then
-            local colfidelity,rendfidelity=Enum.CollisionFidelity.Default,Enum.RenderFidelity.Automatic;
-            if prop.CollisionFidelity and prop.CollisionFidelity.value then
-                colfidelity=resolveEnum(Enum.CollisionFidelity,prop.CollisionFidelity.value) or Enum.CollisionFidelity.Default;
-            end;
-            if prop.RenderFidelity and prop.RenderFidelity.value then
-                rendfidelity=resolveEnum(Enum.RenderFidelity,prop.RenderFidelity.value) or Enum.RenderFidelity.Automatic;
-            end;
             meshPart:SetAttribute("MeshId",meshId);
             meshPart:SetAttribute("TextureId",textureId);
             local idVal=string_match(meshId,"(%d+)$");
@@ -402,9 +390,11 @@ local class_initializers={
             else
                 spawnWorker(workers,function()
                     loadingMeshes[meshId]=true;
+                    local colfidelity,rendfidelity,fluidFidelity=compileFidelities(prop);
                     local suc,new=pcall(assetService.CreateMeshPartAsync,assetService,contentUri(meshId),{
                         CollisionFidelity=colfidelity,
-                        RenderFidelity=rendfidelity
+                        RenderFidelity=rendfidelity,
+                        FluidFidelity=fluidFidelity,
                     });
                     loadingMeshes[meshId]=nil;
                     if not suc then
@@ -587,18 +577,18 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
 end;
 --[[ Initializes module --]]
 function mod:initialize(config,main)
-    if self.isInitialized then return end;
-    self.isInitialized=true;
-    self.Configuration=config;
+    if isInitialized then return end;
+    isInitialized=true;
+    Configuration=config;
     union.modules.modelAssembler=mod;
     union.modules.icloud=main;
-    if self.Configuration.Sandboxed==true then
+    if Configuration.Sandboxed==true then
         sandbox_type="Sandbox";
     end;
 end;
 --[[ Builds asset from its tree and related data --]]
 function mod:buildAsset(data,root_parent,loadSettings)
-    if not self.isInitialized then
+    if not isInitialized then
         warn("ModelAssembler is not initialized.");
         return nil;
     end;
@@ -613,12 +603,17 @@ end;
 function mod:NewScript(isLocal,sandboxType)
     local currentType = sandboxType or (self.Configuration.Sandboxed and "Sandbox" or "Normal");
     if isLocal then
-        return templateCache[currentType.."LocalScript"]:Clone();
+        return templateCache[currentType]["LocalScript"]:Clone();
     else
-        return templateCache[currentType.."Script"]:Clone();
+        return templateCache[currentType]["Script"]:Clone();
     end;
 end;
-for _, child in ipairs(Templates:GetChildren()) do
-    templateCache[child.Name] = child;
+for _, scriptRepo in ipairs(Templates:GetChildren()) do
+    if not templateCache[scriptRepo.Name] then
+        templateCache[scriptRepo.Name]={};
+    end;
+    for _, scriptType in ipairs(scriptRepo:GetChildren()) do
+        templateCache[scriptRepo.Name][scriptType.Name]=scriptType:Clone();
+    end;
 end;
 return mod;
