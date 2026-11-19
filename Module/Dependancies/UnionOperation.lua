@@ -160,11 +160,11 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
     end;
     for i=1,partslen do
         local v=theparts[i];
-        if v:IsA("BasePart") then
+        if v:IsA("BasePart") and v~=partToAttachTo then
             if v:GetAttribute("IsNegateOperation") then
-                negativeParts[#negativeParts+1]=v;
+                table_insert(negativeParts,partToAttachTo);
             else
-                parts[#parts+1]=v;
+                table_insert(parts,v);
             end;
         end;
     end;
