@@ -130,26 +130,39 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
         warn("Parse Failed: "..model);
         return nil;
     end;
-    local partToAttachTo=nil;
-    local theparts=model:GetDescendants();
+    local theparts=model:GetChildren();
+    local partToAttachTo=theparts[1];
     local negativeParts={};
     local parts={};
     local partslen=#theparts;
-    if partslen<1 then
+    if not partToAttachTo then
         warn("Model has no children to union.");
         model:Destroy();
         return nil;
+    end;
+    if partToAttachTo:GetAttribute("IsNegateOperation") then --fix orientation issues
+        table_insert(negativeParts,partToAttachTo);
+        for i=2,partslen do
+            local v=theparts[i];
+            if not v:GetAttribute("IsNegateOperation") then
+                local old=v;
+                partToAttachTo=Instance.new("Part");
+                partToAttachTo.Size=Vector3.new(0.001,0.001,0.001);
+                partToAttachTo.Position=old.Position
+                partToAttachTo.Anchored=old.Anchored;
+                partToAttachTo.Transparency=1;
+                partToAttachTo.CanCollide=false;
+                partToAttachTo.Name="UnionBasePart";
+                partToAttachTo.Parent=model;
+                break;
+            end;
+        end;
     end;
     for i=1,partslen do
         local v=theparts[i];
         if v:IsA("BasePart") then
             if v:GetAttribute("IsNegateOperation") then
                 negativeParts[#negativeParts+1]=v;
-            elseif partToAttachTo==nil then
-                partToAttachTo=v;
-            elseif v.Size>=partToAttachTo.Size then
-                parts[#parts+1]=partToAttachTo;
-                partToAttachTo=v;
             else
                 parts[#parts+1]=v;
             end;
@@ -160,7 +173,9 @@ function mod:applyChildData(childData,options:UnionOptions,isIntersection:boolea
     local renderFidelity=options.RenderFidelity;
     local suc,Union=pcall(function()
         if isIntersection and #parts~=0 then
-            partToAttachTo=partToAttachTo:IntersectAsync(parts,collisionFidelity,renderFidelity);
+            local op1=partToAttachTo:IntersectAsync(parts);
+            op1.Parent=model;
+            partToAttachTo=partToAttachTo:IntersectAsync({op1},collisionFidelity,renderFidelity);
         else
             partToAttachTo=partToAttachTo:UnionAsync(parts,collisionFidelity,renderFidelity);
         end;
