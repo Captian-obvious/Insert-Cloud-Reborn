@@ -7,7 +7,7 @@ authors:
     - Captian-obvious (aka Superduperdev2)
 ---
 # Prerequisites
-Understanding this document requires some prior knowledge with what a RESTful API is and how to<br/>
+Understanding this document requires some prior knowledge of what a RESTful API is and how to<br/>
 interact with one. It also assumes a basic understanding of data types:
 - `int`: Integer<br/>
 - `float`: Float32/Float64 (decimal)<br/>
@@ -36,7 +36,7 @@ This Document mentions some data structures that are not the same as other REST 
 Here is a list:
 ### JSON Instance Tree
 [**JSON**](https://www.rfc-editor.org/rfc/rfc8259) representation of an [**RBXM**](https://dom.rojo.space/binary.html). The below is typical structure and has been trimmed for brevity.<br/>
-A real part returns ~60 properties. (AssetId: 76882569327343)<br/>
+A real part returns ~60 properties. (Sourced from AssetId: 76882569327343)<br/>
 ```json
 {
     "metadata": { "ExplicitAutoJoints": true },
