@@ -58,7 +58,7 @@ real asset, real assets have actual Roblox properties such as "Material" and "CF
             "properties":{
                 "SomeProperty":{
                     "type":"string",
-                    "value":"type specific, once again this is a string that isnt encoded",
+                    "value":"type specific, once again this is a string that isn't encoded",
                     "enc":false
                 },
                 "SomeOtherProperty":{
@@ -110,7 +110,7 @@ mesh.
 
 # Fetch Endpoints
 
-**MOST OF THESE ENDPOINTS SUPPORT THE HEADER `x-api-key`!!**<br/>
+**ENDPOINTS THAT FETCH A ROBLOX RESOURCE SUPPORT THE HEADER `x-api-key`!!**<br/>
 **IT IS RECOMMENDED YOU PROVIDE YOUR OWN `x-api-key` HEADER <br/>
 TO AVOID RATE LIMITS ON THE PRIMARY DEFAULT ONE!**
 
@@ -212,6 +212,7 @@ curl "https://ic-siwebservices.com/api/v1/asset/15098485774?placeId=886901588852
 ## `POST /api/v3/public/parse`
 Parse an [**RBXM**](https://dom.rojo.space/binary.html) Stream into a [**JSON Instance Tree**](#json-instance-tree);<br/>
 Useful to parse any [**RBXM**](https://dom.rojo.space/binary.html) Stream into its<br/> [**JSON Instance Tree**](#json-instance-tree)<br/>
+Does not use `x-api-key`<br/>
 ### Parameters
 - Request `body`<span style="color: #ff0000">*</span>: Base64 encoded [**RBXM**](https://dom.rojo.space/binary.html) stream to parse
 
