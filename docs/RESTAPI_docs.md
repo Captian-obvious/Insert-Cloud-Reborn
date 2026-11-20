@@ -32,8 +32,8 @@ interact with one. It also assumes a basic understanding of data types:
 <span style="color: #ff0000">*</span>Required<br/>
 
 ## Data Structures
-This Document mentions some data structures that are not the same as other REST APIs, Here is a<br/>
-list:
+This Document mentions some data structures that are not the same as other REST APIs.<br/>
+Here is a list:
 ### JSON Instance Tree
 [**JSON**](https://www.rfc-editor.org/rfc/rfc8259) representation of an [**RBXM**](https://dom.rojo.space/binary.html). The below is typical structure and does not reflect any<br/>
 real asset, real assets have actual Roblox properties such as "Material" and "CFrame"<br/>
