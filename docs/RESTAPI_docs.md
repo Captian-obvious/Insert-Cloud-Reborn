@@ -126,8 +126,7 @@ This is deprecated in favor of `type=SolidModel` as it functions identically.<br
 curl "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=88690158885284"
 
 # With your own API key (recommended, avoids the shared rate limit)
-curl -H "x-api-key: YOUR_API_KEY" \
-    "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=88690158885284"
+curl -H "x-api-key: YOUR_API_KEY" "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=88690158885284"
 
 # Fetch a Mesh, converted to .obj
 curl -H "x-api-key: YOUR_API_KEY" \
