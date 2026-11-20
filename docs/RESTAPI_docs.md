@@ -35,53 +35,35 @@ interact with one. It also assumes a basic understanding of data types:
 This Document mentions some data structures that are not the same as other REST APIs.<br/>
 Here is a list:
 ### JSON Instance Tree
-[**JSON**](https://www.rfc-editor.org/rfc/rfc8259) representation of an [**RBXM**](https://dom.rojo.space/binary.html). The below is typical structure and does not reflect any<br/>
-real asset, real assets have actual Roblox properties such as "Material" and "CFrame"<br/>
+[**JSON**](https://www.rfc-editor.org/rfc/rfc8259) representation of an [**RBXM**](https://dom.rojo.space/binary.html). The below is typical structure and has been trimmed for brevity.<br/>
+A real part returns ~60 properties. (AssetId: 76882569327343)<br/>
 ```json
 {
-    "metadata":{
-        "ExplicitAutoJoints":true
-    },
-    "instance_count":2,
-    "class_count":2,
-    "tree":[
+    "metadata": { "ExplicitAutoJoints": true },
+    "class_count": 1,
+    "instance_count": 1,
+    "tree": [
         {
-            "class_name":"SomeClass",
-            "ref":0,
-            "attributes":{
-                "SomeAttribute":{
-                    "type":"string",
-                    "value":"type specific, this example is a string that isn't encoded in base64",
-                    "enc":false
+            "ClassName": "Part",
+            "ClassId": 0,
+            "Ref": 0,
+            "attributes": {},
+            "tags": [],
+            "properties": {
+                "Name": { "type": "string", "value": "target" },
+                "Anchored": { "type": "boolean", "value": true },
+                "Material": { "type": "enum", "value": 272 },
+                "Color3uint8": { "type": "rgbc3", "value": [254, 243, 187] },
+                "size": { "type": "vector3", "value": [14, 14, 14] },
+                "CFrame": {
+                    "type": "cframe",
+                    "value": {
+                        "position": { "vector3": [-326.88, 617.57086, 322.48254] },
+                        "rotation": [1, 0, 0, 0, 1, 0, 0, 0, 1]
+                    }
                 }
             },
-            "properties":{
-                "SomeProperty":{
-                    "type":"string",
-                    "value":"type specific, once again this is a string that isn't encoded",
-                    "enc":false
-                },
-                "SomeOtherProperty":{
-                    "type":"rbxf32",
-                    "value":0.0
-                }
-            },
-            "children":[
-                {
-                    "class_name":"SomeOtherClass",
-                    "ref":1,
-                    "attributes":{},
-                    "properties":{
-                        "AnotherProperty":{
-                            "type":"rbxf32",
-                            "value":0.0
-                        }
-                    },
-                    "children":[],
-                    "class_id":1
-                }
-            ],
-            "class_id":0
+            "children": []
         }
     ]
 }
