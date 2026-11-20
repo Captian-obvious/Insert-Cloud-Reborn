@@ -135,24 +135,26 @@ This is deprecated in favor of `type=SolidModel` as it functions identically.<br
 - 400 BAD REQUEST - Request sent was invalid.
 - 401 UNAUTHORIZED - API Key provided is invalid or expired.
 - 403 FORBIDDEN - User is not authorized to access asset.
+- 404 NOT FOUND - Asset does not exist
 - 409 CONFLICT - There was a conflict with permissions to access asset.
+- 429 TOO MANY REQUESTS - Rate limited by endpoint (or Roblox).
 - 500 INTERNAL SERVER ERROR - Asset failed to decompile (parse).
 
 ```bash
 # Fetch Model as a JSON Instance Tree
-curl "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=7081918890"
+curl "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=88690158885284"
 
 # With your own API key (recommended, avoids the shared rate limit)
 curl -H "x-api-key: YOUR_API_KEY" \
-    "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=7081918890"
+    "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=88690158885284"
 
 # Fetch a Mesh, converted to .obj
 curl -H "x-api-key: YOUR_API_KEY" \
-    "https://ic-siwebservices.com/api/v3/asset/123456789?placeId=987654321&type=Mesh" \
+    "https://ic-siwebservices.com/api/v3/asset/11882396735?placeId=88690158885284&type=Mesh" \
     --output mesh.obj
 
 # With a specific version
-curl "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=7081918890&version=1"
+curl "https://ic-siwebservices.com/api/v3/asset/15098485774?placeId=88690158885284&version=1"
 ```
 
 ## `GET /api/v2/asset/<assetId:int>` (LEGACY)
@@ -167,11 +169,13 @@ Fetches an asset (in [**RBXM**](https://dom.rojo.space/binary.html)) from Roblox
 - 400 BAD REQUEST - Request sent was invalid.
 - 401 UNAUTHORIZED - API Key provided is invalid or expired.
 - 403 FORBIDDEN - User is not authorized to access asset.
+- 404 NOT FOUND - Asset does not exist
 - 409 CONFLICT - There was a conflict with permissions to access asset.
+- 429 TOO MANY REQUESTS - Rate limited by endpoint (or Roblox).
 - 500 INTERNAL SERVER ERROR - Asset failed to decompile (parse).
 
 ```bash
-curl "https://ic-siwebservices.com/api/v2/asset/15098485774?placeId=7081918890"
+curl "https://ic-siwebservices.com/api/v2/asset/15098485774?placeId=88690158885284"
 ```
 
 ## `GET /api/v1/asset/<assetId:int>` (LEGACY, Upgraded)
@@ -188,11 +192,13 @@ only `Model`s were supported, but changes in the backend allowed support for oth
 - 400 BAD REQUEST - Request sent was invalid.
 - 401 UNAUTHORIZED - API Key provided is invalid or expired.
 - 403 FORBIDDEN - User is not authorized to access asset.
+- 404 NOT FOUND - Asset does not exist
+- 429 TOO MANY REQUESTS - Rate limited by endpoint (or Roblox).
 - 409 CONFLICT - There was a conflict with permissions to access asset.
 
 ```bash
 # Returns asset data raw
-curl "https://ic-siwebservices.com/api/v1/asset/15098485774?placeId=7081918890" \
+curl "https://ic-siwebservices.com/api/v1/asset/15098485774?placeId=88690158885284" \
     --output model.rbxm
 ```
 
