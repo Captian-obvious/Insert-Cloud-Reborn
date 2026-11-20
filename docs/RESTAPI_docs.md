@@ -87,8 +87,7 @@ real asset, real assets have actual Roblox properties such as "Material" and "CF
 }
 ```
 ### FileMesh
-In house mesh format of Roblox, its file extension is listed with its conversion<br/>
-and it's listed here again: `.mesh`<br/>
+Roblox’s in-house mesh format, using the `.mesh` extension <br/>
 
 The FileMesh format is a sort of mix of text and binary. Its file header is always one of these 10<br/>
 - `version 1.00\n`
