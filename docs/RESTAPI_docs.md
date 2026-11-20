@@ -210,7 +210,7 @@ Useful to parse any [**RBXM**](https://dom.rojo.space/binary.html) Stream into i
 - 500 INTERNAL SERVER ERROR - Failed to decompile (parse) stream.
 
 ```bash
-# Base64-encode a local .rbxm and send it as the request body (non-mac)
+# Base64 encode a local .rbxm and send it as the request body (non-mac)
 base64 -w 0 model.rbxm | curl -X POST \
   --data-binary @- \
   "https://ic-siwebservices.com/api/v3/public/parse"
