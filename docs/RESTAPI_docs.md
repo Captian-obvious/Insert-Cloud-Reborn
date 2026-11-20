@@ -179,7 +179,9 @@ curl "https://ic-siwebservices.com/api/v2/asset/15098485774?placeId=886901588852
 ```
 
 ## `GET /api/v1/asset/<assetId:int>` (LEGACY, Upgraded)
-Fetches an asset from Roblox's Asset Storage and directly returns its data, previously<br/>
+A thin proxy for Roblox's Asset Delivery. The asset is fetched and returned
+exactly as Roblox serves it, with no parsing or conversion. Use v3 if you
+want the asset converted to JSON or OBJ. Previously<br/>
 only `Model`s were supported, but changes in the backend allowed support for other `AssetType`s<br/>
 ### Parameters
 - `assetId`<span style="color: #ff0000">*</span> (url): ID of the asset you want to fetch.
@@ -188,13 +190,11 @@ only `Model`s were supported, but changes in the backend allowed support for oth
 - `type` (query): Roblox Asset Type (defaults to `Model`) {Refer to [Valid Asset Types](#valid-asset-types-so-far) for valid types (and returned `Content-Type`)}
 
 ### Responses:
+
 - 200 OK - Asset Resource fetched successfully
-- 400 BAD REQUEST - Request sent was invalid.
 - 401 UNAUTHORIZED - API Key provided is invalid or expired.
-- 403 FORBIDDEN - User is not authorized to access asset.
-- 404 NOT FOUND - Asset does not exist
 - 429 TOO MANY REQUESTS - Rate limited by endpoint (or Roblox).
-- 409 CONFLICT - There was a conflict with permissions to access asset.
+Other response codes are from Roblox itself.
 
 ```bash
 # Returns asset data raw
