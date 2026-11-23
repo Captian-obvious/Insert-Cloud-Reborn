@@ -1005,20 +1005,6 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		return
 	}
 	jDatString := string(jDat)
-	if strings.Contains(jDatString, "Model Parse Error") || strings.Contains(jDatString, "Roblox Studio — Recovery") { //honeypot, since no actual errors contain this
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ApiError{
-			Error:        "Model Parse Error",
-			ResponseCode: 500,
-			Details: []ApiErrorDetailsStruct{
-				{
-					Error: "An error occurred while parsing the model. (nice try exploiter)",
-					Code:  -1,
-				},
-			},
-		})
-		return
-	}
 	if conf.ServerConfig.JSONCachingEnabled {
 		file, err := os.Create(filepath.Join(jsonPath, versionedAssetId+".json"))
 		if err != nil {
