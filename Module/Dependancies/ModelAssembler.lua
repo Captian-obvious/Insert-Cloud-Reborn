@@ -25,6 +25,7 @@ local PhysicalProperties_new=PhysicalProperties.new;
 local CFrame_new=CFrame.new;
 local Vector3_new=Vector3.new;
 local math_max=math.max;
+local Font_new=Font.new;
 local BrickColor_new=BrickColor.new;
 local Color3_new=Color3.new;
 local Color3_fromRGB=Color3.fromRGB;
@@ -132,9 +133,7 @@ local propertyTypes={
     ["sharedstr"]=function(typed,value,refs)
         return b64_decode(value);
     end,
-    ["enum"]=function(typed,value,refs,prop_instance)
-        local propName=prop_instance.propName;
-        local classInstance=prop_instance.classInstance;
+    ["enum"]=function(typed,value,refs,propName,classInstance)
         if not classInstance then return nil; end;
         return resolveEnum(classInstance[propName].EnumType,value);
     end,
@@ -238,12 +237,12 @@ local propertyTypes={
     end,
     ["font"]=function(typed,value,refs)
         if value and typeof(value) == "table" then
-            local family = value.fontFamily or "rbxasset://fonts/families/LegacySerif.json";
-            local weight = value.fontWeight or 400;
-            local style = value.fontStyle or 0;
-            return Font.new(family,resolveEnum(Enum.FontWeight,weight),resolveEnum(Enum.FontStyle,style));
+            local family = value.family or "rbxasset://fonts/families/LegacySerif.json";
+            local weight = value.weight or 400;
+            local style = value.style or 0;
+            return Font_new(family,resolveEnum(Enum.FontWeight,weight),resolveEnum(Enum.FontStyle,style));
         end;
-        return Font.new("rbxasset://fonts/families/LegacySerif.json");
+        return Font_new("rbxasset://fonts/families/LegacySerif.json");
     end,
     ["rect"]=function(typed,value,refs)
         if typeof(value)~="table" then return Rect.new() end;
@@ -256,20 +255,19 @@ local propertyTypes={
         return refs[value];
     end,
 };
-local function compile_prop(prop,v,refs,class)
-    local value=v.value;
-    local typed=v.type;
+local function compileValue(prop,val,refs,class)
+    local value=val.value;
+    local typed=val.type;
     local compile=propertyTypes[typed];
     if compile then
-        if typed=="enum" then
-            return compile(typed,value,refs,{propName=prop,classInstance=class});
-        elseif typed=="string" then
-            return compile(typed,value,refs,v.enc);
+        if typed=="string" then -- str? sir stir
+            return compile(typed,value,refs,val.enc);
+        elseif typed=="enum" then
+            return compile(typed,value,refs,prop,class);
         elseif typed=="content" then
-            return compile(typed,value,refs,v.ctyp);
-        else
-            return compile(typed,value,refs);
+            return compile(typed,value,refs,val.ctyp);
         end;
+        return compile(typed,value,refs);
     end;
     if value~=nil then
         return value;
@@ -306,12 +304,12 @@ local function InstantiateSolidModel(class_name,inst,prop,refs,loadSettings,work
         };
         local model;
         if (prop.AssetId~=nil and string_len(prop.AssetId.value)>0) then --priority 1
-            model=union:applyAssetId(compile_prop("AssetId",prop.AssetId,refs,part),options,isIntersection);
+            model=union:applyAssetId(compileValue("AssetId",prop.AssetId,refs,part),options,isIntersection);
         elseif (prop.AssetData~=nil and string_len(prop.AssetData.value)>0) then
-            model=union:applyAssetData(compile_prop("AssetData",prop.AssetData,refs,part),options,isIntersection);
+            model=union:applyAssetData(compileValue("AssetData",prop.AssetData,refs,part),options,isIntersection);
         else
-            local childData=(prop.ChildData~=nil and string_len(prop.ChildData.value)>0) and compile_prop("ChildData",prop.ChildData,refs,part) or nil;
-            local childData2=(prop.ChildData2~=nil and string_len(prop.ChildData2.value)>0) and compile_prop("ChildData2",prop.ChildData2,refs,part) or nil;
+            local childData=(prop.ChildData~=nil and string_len(prop.ChildData.value)>0) and compileValue("ChildData",prop.ChildData,refs,part) or nil;
+            local childData2=(prop.ChildData2~=nil and string_len(prop.ChildData2.value)>0) and compileValue("ChildData2",prop.ChildData2,refs,part) or nil;
             local data=(childData2~=nil) and childData2 or childData;
             if not data then return end;
             model=union:applyChildData(data,options,isIntersection);
@@ -338,9 +336,16 @@ local blocked_classes={
 };
 local class_initializers={
     ["Script"]=function(class_name,inst,prop,refs,loadSettings)
+        local runContext=prop.RunContext;
+        if runContext~=nil and runContext.value==2 then
+            return templateCache[sandbox_type]["LegacyLocalScript"]:Clone();
+        end;
         return templateCache[sandbox_type][class_name]:Clone();
     end,
     ["LocalScript"]=function(class_name,inst,prop,refs,loadSettings)
+        if loadSettings.FECompatible then
+            return templateCache[sandbox_type]["Legacy"..class_name]:Clone();
+        end;
         return templateCache[sandbox_type][class_name]:Clone();
     end,
     ["ModuleScript"]=function(class_name,inst,prop,refs,loadSettings)
@@ -358,7 +363,7 @@ local class_initializers={
         if tidprop then
             textureId=tidprop.value;
         end;
-        if loadSettings.EnablePreciseMeshParts then
+        if loadSettings.PreciseMeshParts then
             meshPart:SetAttribute("MeshId",meshId);
             meshPart:SetAttribute("TextureId",textureId);
             local idVal=string_match(meshId,"(%d+)$");
@@ -408,20 +413,20 @@ local class_initializers={
                 end);
             end;
             meshPart.TextureID=textureId;
-        else
-            meshPart:Destroy();
-            meshPart=Instance_new("Part");
-            local InitialSize=compile_prop("InitializeSize",prop.InitialSize,refs,class_name);
-            local OrigSize=compile_prop("Size",prop.size,refs,class_name);
-            -- everything else is applied during the properties step so we just need to set up the mesh
-            local mesh=Instance_new("SpecialMesh");
-            mesh.MeshType=Enum.MeshType.FileMesh;
-            mesh.MeshId=meshId;
-            mesh.TextureId=textureId;
-            mesh.Scale=OrigSize/InitialSize;
-            mesh:SetAttribute("initialSize",InitialSize);
-            mesh.Parent=meshPart;
+            return meshPart;
         end;
+        meshPart:Destroy();
+        meshPart=Instance_new("Part");
+        local InitialSize=compileValue("InitializeSize",prop.InitialSize,refs,class_name);
+        local OrigSize=compileValue("Size",prop.size,refs,class_name);
+        -- everything else is applied during the properties step so we just need to set up the mesh
+        local mesh=Instance_new("SpecialMesh");
+        mesh.MeshType=Enum.MeshType.FileMesh;
+        mesh.MeshId=meshId;
+        mesh.TextureId=textureId;
+        mesh.Scale=OrigSize/InitialSize;
+        mesh:SetAttribute("initialSize",InitialSize);
+        mesh.Parent=meshPart;
         return meshPart;
     end,
     ['SurfaceAppearance']=function(class_name,inst,prop,refs,loadSettings)
@@ -462,7 +467,7 @@ local class_initializers={
         local humanoid=Instance_new("Humanoid");
         local healthprop=prop.Health or prop.Health_XML;
         humanoid.MaxHealth=prop.MaxHealth.value or 100;
-        humanoid.Health=(healthprop~=nil and healthprop.value~=nil) and compile_prop("Health",healthprop,refs,class_name) or humanoid.MaxHealth;
+        humanoid.Health=(healthprop~=nil and healthprop.value~=nil) and compileValue("Health",healthprop,refs,class_name) or humanoid.MaxHealth;
         return humanoid;
     end,
     ["PackageLink"]=function(class_name,inst,prop,refs,loadSettings)
@@ -498,41 +503,27 @@ local function initProp(obj,propName,prop,refs,loadSettings)
     propName=propRemappings[propName] or propName; --some properties dont have the name they have ingame, we fix that here
     local propVal=prop.value;
     if (propName=="Source") then
-        obj:SetAttribute("Source",compile_prop(propName,prop,refs,obj));
+        obj:SetAttribute("Source",compileValue(propName,prop,refs,obj));
     elseif (propName=="Disabled" and propVal==false) then
         obj:SetAttribute("IC_Enabled",not propVal);
-        if not mod.Configuration.DisableScripts then
+        if not Configuration.DisableScripts then
             obj.Enabled=not propVal;
         end;
     elseif ((propName=="Playing" or propName=="IsPlaying") and propVal==true) then
         obj.Playing=false;
         obj:SetAttribute("IC_Playing",propVal);
-    elseif (propName=="Locked" and mod.Configuration.UnlockParts) then
+    elseif (propName=="Locked" and Configuration.UnlockParts) then
         obj.Locked=false;
     end;
     if not propSpecials[propName] then
-        obj[propName]=compile_prop(propName,prop,refs,obj);
-    end;
-end;
-local function buildProps(instances,refs,loadSettings)
-    local applyAttrs=loadSettings and loadSettings.ApplyAttributes;
-    for i=1,#instances do
-        local obj,props,attrs=table_unpack(instances[i]);
-        for propName, prop in props do
-            pcall(initProp,obj,propName,prop,refs,loadSettings);
-        end;
-        if applyAttrs and attrs~=nil then
-            for attrName,attr in attrs do
-                pcall(obj.SetAttribute,obj,attrName,compile_prop(attrName,attr,refs,obj));
-            end;
-        end;
+        obj[propName]=compileValue(propName,prop,refs,obj);
     end;
 end;
 --[[ Build model tree --]]
 local function buildModel(base,parent,rbxmtree,refs,loadSettings)
     refs=refs or {};
     loadSettings=loadSettings or {};
-    local maxWorkers=mod.Configuration.MaxChildrenPerFrame;
+    local maxWorkers=Configuration.MaxChildrenPerFrame;
     local workers:promise.Worker={
         PendingWorkers={},
         MaxWorkers=maxWorkers,
@@ -557,10 +548,6 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
                     instance=Instance_new(classname);
                 end;
                 if instance then
-                    if instance:IsA("BasePart") then
-                        instance.Anchored=true;
-                        instance.CanCollide=false;
-                    end;
                     refs[inst.Ref]=instance;
                     instances[#instances+1]={instance,props,inst.attributes};
                     if #children>0 then
@@ -572,7 +559,17 @@ local function buildModel(base,parent,rbxmtree,refs,loadSettings)
         end;
     end;
     promise.waitForWorkers(workers);
-    buildProps(instances,refs,loadSettings);
+    for i=1,#instances do
+        local obj,props,attrs=table_unpack(instances[i]);
+        for propName, prop in props do
+            pcall(initProp,obj,propName,prop,refs,loadSettings);
+        end;
+        if attrs~=nil then
+            for attrName,attr in attrs do
+                pcall(obj.SetAttribute,obj,attrName,compileValue(attrName,attr,refs,obj));
+            end;
+        end;
+    end;
     return parent;
 end;
 --[[ Initializes module --]]
@@ -601,7 +598,7 @@ function mod:buildAsset(data,root_parent,loadSettings)
 end;
 --[[ Creates a Script or LocalScript `LoadCode` --]]
 function mod:NewScript(isLocal,sandboxType)
-    local currentType = sandboxType or (self.Configuration.Sandboxed and "Sandbox" or "Normal");
+    local currentType = sandboxType or (Configuration.Sandboxed and "Sandbox" or "Normal");
     if isLocal then
         return templateCache[currentType]["LocalScript"]:Clone();
     else
