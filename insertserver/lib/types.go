@@ -14,9 +14,9 @@ type UDim2 struct {
 	Y UDim `json:"y"`
 }
 type Font struct {
-	FontFamily string `json:"fontFamily"`
-	FontWeight int    `json:"fontWeight"`
-	FontStyle  int    `json:"fontStyle"`
+	FontFamily string `json:"family"`
+	FontWeight int    `json:"weight"`
+	FontStyle  int    `json:"style"`
 }
 type Rect struct {
 	Position1 []float32 `json:"pos1"`
@@ -68,12 +68,12 @@ type ClassRefEntry struct {
 }
 type RBXM struct {
 	Metadata      map[string]any  `json:"metadata"`
-	SharedStrings []string        `json:"shared_strings"`
-	StringHashes  []string        `json:"string_hashes,omitempty"`
-	ClassCount    uint32          `json:"class_count"`
-	InstanceCount uint32          `json:"instance_count"`
-	ClassRef      []ClassRefEntry `json:"class_ref"`
-	InstRef       []*Instance     `json:"inst_ref"`
+	SharedStrings []string        `json:"sharedStrings"`
+	StringHashes  []string        `json:"stringHashes,omitempty"`
+	ClassCount    uint32          `json:"classCount"`
+	InstanceCount uint32          `json:"instanceCount"`
+	ClassRef      []ClassRefEntry `json:"classRef"`
+	InstRef       []*Instance     `json:"instRef"`
 	Tree          []*Instance     `json:"tree"`
 }
 

@@ -53,7 +53,7 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 	case 0x02:
 		for i := 0; i < sizeof; i++ {
 			properties[i] = Property{
-				Type:  "boolean",
+				Type:  "bool",
 				Value: data.ReadAsString(1, true) != "\x00",
 			}
 		}
@@ -74,7 +74,7 @@ func DecodeProp(data *Stream, typeId byte, sizeof int, rbxm *RBXM) ([]Property, 
 	case 0x05:
 		for i := 0; i < sizeof; i++ {
 			properties[i] = Property{
-				Type:  "float64",
+				Type:  "f64",
 				Value: PurifyFloatValue(Float64(data)),
 			}
 		}
@@ -466,7 +466,7 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				}
 			case 3:
 				retVal[attr] = Attribute{
-					Type:  "boolean",
+					Type:  "bool",
 					Value: data.ReadAsString(1, true) != "\x00",
 				}
 			case 5:
@@ -505,7 +505,7 @@ func ParseAttributesValue(_prop Property) map[string]Attribute {
 				data.ReadNumber(binary.LittleEndian, &sy)
 				data.ReadNumber(binary.LittleEndian, &oy)
 				retVal[attr] = Attribute{
-					Type: "udim",
+					Type: "udim2",
 					Value: UDim2{
 						X: UDim{
 							Scale:  PurifyFloat32Value(sx),

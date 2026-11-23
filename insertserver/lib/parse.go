@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/klauspost/compress/zstd"
@@ -68,6 +69,8 @@ func ProcessChunk(chunkStore map[string][]Chunk, ident string, rbxm *RBXM) error
 			if err != nil {
 				return err
 			}
+			chunk.Data = nil
+			// runtime.GC() // Force garbage collection to free up memory
 		}
 	}
 	return nil

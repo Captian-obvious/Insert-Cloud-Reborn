@@ -157,11 +157,10 @@ type LegacyAssetLocationData struct {
 }
 
 type OutputRBXM struct {
-	Metadata      map[string]any `json:"metadata"`
-	ClassCount    uint32         `json:"class_count"`
-	InstanceCount uint32         `json:"instance_count"`
-	// ClassRef      []lib.ClassRefEntry `json:"class_ref"`
-	Tree []*lib.Instance `json:"tree"`
+	Metadata      map[string]any  `json:"metadata"`
+	ClassCount    uint32          `json:"classCount"`
+	InstanceCount uint32          `json:"instanceCount"`
+	Tree          []*lib.Instance `json:"tree"`
 }
 
 type ErrorPageData struct {
@@ -534,8 +533,7 @@ func ParseHandler(w http.ResponseWriter, r *http.Request) {
 		Metadata:      rbxm.Metadata,
 		ClassCount:    rbxm.ClassCount,
 		InstanceCount: rbxm.InstanceCount,
-		// ClassRef:      rbxm.ClassRef,
-		Tree: rbxm.Tree,
+		Tree:          rbxm.Tree,
 	}
 	err = json.NewEncoder(w).Encode(jsonData)
 	if err != nil {
@@ -989,8 +987,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		Metadata:      rbxm.Metadata,
 		ClassCount:    rbxm.ClassCount,
 		InstanceCount: rbxm.InstanceCount,
-		// ClassRef:      rbxm.ClassRef,
-		Tree: rbxm.Tree,
+		Tree:          rbxm.Tree,
 	}
 	jDat, err := json.Marshal(jsonData)
 	if err != nil {
@@ -1008,7 +1005,7 @@ func ParseRBXM(w http.ResponseWriter, data string, assetId string, version strin
 		return
 	}
 	jDatString := string(jDat)
-	if strings.Contains(jDatString, "Model Parse Error") { //honeypot, since no actual errors contain this
+	if strings.Contains(jDatString, "Model Parse Error") || strings.Contains(jDatString, "Roblox Studio — Recovery") { //honeypot, since no actual errors contain this
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ApiError{
 			Error:        "Model Parse Error",

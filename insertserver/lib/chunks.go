@@ -125,9 +125,9 @@ func PRNT(data *Stream, rbxm *RBXM) error {
 		if parentId != -1 {
 			parent := rbxm.InstRef[parentId]
 			parent.Children = append(parent.Children, child)
-		} else {
-			rbxm.Tree = append(rbxm.Tree, child)
+			continue
 		}
+		rbxm.Tree = append(rbxm.Tree, child)
 	}
 	return nil
 }
